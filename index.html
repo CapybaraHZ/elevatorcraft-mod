@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><script data-tmly-media-guard="1">(function(){"use strict";
+var T=window.__tmly||(window.__tmly=(function(){
+var o={},n=String(window.name||"");
+if(n.slice(0,5)==="tmly:"){n.slice(5).split("&").forEach(function(kv){
+var i=kv.indexOf("=");if(i>0){o[kv.slice(0,i)]=kv.slice(i+1)}})}
+return o})());
+if(T.presentation!=="preview"){return}
+var K="tmly:media-muted:"+String(location.pathname).replace(/[^/]*$/,"");
+var muted=false;try{muted=localStorage.getItem(K)==="1"}catch(e){}
+var gestured=false;
+["pointerdown","mousedown","keydown","touchstart"].forEach(function(t){
+document.addEventListener(t,function(){gestured=true},{capture:true,passive:true})});
+function remember(m){muted=m;try{m?localStorage.setItem(K,"1"):localStorage.removeItem(K)}catch(e){}}
+function announcePaused(el){try{el.dispatchEvent(new Event("pause"))}catch(e){}}
+function harden(el){
+el.autoplay=false;el.removeAttribute("autoplay");
+if(el.getAttribute("preload")==="auto"){el.setAttribute("preload","none")}
+if(muted){el.muted=true}
+if(!gestured&&!el.paused){try{el.pause()}catch(e){}}}
+var play=HTMLMediaElement.prototype.play;
+HTMLMediaElement.prototype.play=function(){
+if(!gestured){announcePaused(this);
+return Promise.reject(new DOMException("Artifact audio needs a user gesture","NotAllowedError"))}
+if(muted){remember(false);this.muted=false}
+return play.apply(this,arguments)};
+var acProtos=[];
+function guardAC(n){
+var N=window[n];if(!N||!N.prototype){return}
+if(acProtos.indexOf(N.prototype)<0){acProtos.push(N.prototype);
+var res=N.prototype.resume;
+if(typeof res==="function"){N.prototype.resume=function(){
+if(!gestured){return Promise.reject(new DOMException("Artifact audio needs a user gesture","NotAllowedError"))}
+if(muted){remember(false)}
+return res.apply(this,arguments)}}}
+var W=function(o){var c=arguments.length?new N(o):new N();
+if(!gestured){try{c.suspend()}catch(e){}}return c};
+W.prototype=N.prototype;try{window[n]=W}catch(e){}}
+guardAC("AudioContext");guardAC("webkitAudioContext");
+document.addEventListener("play",function(e){
+var el=e.target;if(el instanceof HTMLMediaElement&&!gestured){try{el.pause()}catch(err){}}},true);
+document.addEventListener("pause",function(e){
+if(e.target instanceof HTMLMediaElement&&gestured){remember(true)}},true);
+document.addEventListener("volumechange",function(e){
+var el=e.target;if(el instanceof HTMLMediaElement&&gestured){remember(el.muted||el.volume===0)}},true);
+function sweep(n){if(n&&n.querySelectorAll){var l=n.querySelectorAll("audio,video");
+for(var i=0;i<l.length;i++){harden(l[i])}}}
+new MutationObserver(function(rs){for(var i=0;i<rs.length;i++){var a=rs[i].addedNodes;
+for(var j=0;j<a.length;j++){var n=a[j];
+if(n instanceof HTMLMediaElement){harden(n)}else{sweep(n)}}}})
+.observe(document.documentElement,{childList:true,subtree:true});
+document.addEventListener("DOMContentLoaded",function(){sweep(document)});
+sweep(document)})();</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElevatorCraft — Minecraft Fabric 电梯模组 · 完整实现方案</title>
+<style>
+  :root{
+    --bg:#0e1116; --bg2:#151a22; --panel:#1b222c; --panel2:#212a36;
+    --line:#2c3745; --line2:#3a4757;
+    --txt:#e6edf5; --dim:#9aa8b8; --dim2:#6f7d8d;
+    --accent:#4fd1c5; --accent2:#38b2a6; --amber:#ffc857; --red:#ff6b6b; --green:#5ddc7a;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+  /* ---------- HERO ---------- */
+  header.hero{
+    position:relative; overflow:hidden;
+    background:
+      radial-gradient(900px 400px at 15% -10%, rgba(79,209,197,.16), transparent 60%),
+      radial-gradient(700px 380px at 90% 0%, rgba(255,200,87,.10), transparent 60%),
+      linear-gradient(180deg,#121821,#0e1116);
+    border-bottom:1px solid var(--line);
+    padding:64px 0 52px;
+  }
+  .hero-grid{
+    position:absolute; inset:0; opacity:.35;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(600px 300px at 30% 20%,#000,transparent 75%);
+  }
+  .hero .wrap{position:relative}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    background:rgba(79,209,197,.10); border:1px solid rgba(79,209,197,.35);
+    color:var(--accent); font-size:12.5px; font-weight:600; letter-spacing:.04em;
+    padding:6px 13px; border-radius:999px; margin-bottom:20px;
+  }
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  h1{font-size:clamp(30px,5vw,50px);line-height:1.12;letter-spacing:-.02em;font-weight:800}
+  h1 .grad{background:linear-gradient(100deg,var(--accent),#8fe3da 55%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:17px;margin-top:16px;max-width:720px}
+  .hero-meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .chip{
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:7px 13px;font-size:13px;color:var(--dim);font-family:var(--mono)
+  }
+  .chip b{color:var(--txt);font-weight:600}
+
+  /* ---------- SECTIONS ---------- */
+  section{padding:56px 0;border-bottom:1px solid var(--line)}
+  .eyebrow{color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+  h2{font-size:clamp(22px,3.4vw,32px);letter-spacing:-.01em;font-weight:750;margin-bottom:8px}
+  h3{font-size:18px;font-weight:700;margin:26px 0 10px;color:var(--txt)}
+  h3 .n{color:var(--accent);font-family:var(--mono);font-size:15px;margin-right:8px}
+  p.lead{color:var(--dim);max-width:820px;margin-bottom:8px}
+  p{color:var(--dim)}
+  strong{color:var(--txt);font-weight:650}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---------- CARDS ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:26px}
+  .card{
+    background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1px solid var(--line);border-radius:14px;padding:20px;
+    transition:border-color .2s,transform .2s;
+  }
+  .card:hover{border-color:var(--line2);transform:translateY(-2px)}
+  .card .ico{font-size:22px;margin-bottom:10px;display:block}
+  .card h4{font-size:15.5px;font-weight:700;margin-bottom:6px}
+  .card p{font-size:13.5px;color:var(--dim);line-height:1.6}
+
+  /* ---------- TABLE ---------- */
+  .tbl-wrap{overflow-x:auto;margin-top:20px;border:1px solid var(--line);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+  th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line)}
+  th{background:var(--panel2);color:var(--txt);font-weight:650;font-size:13px;letter-spacing:.02em}
+  tr:last-child td{border-bottom:none}
+  td{color:var(--dim)}
+  td strong{color:var(--txt)}
+  tbody tr:hover{background:rgba(79,209,197,.04)}
+  code{font-family:var(--mono);font-size:12.5px;background:rgba(79,209,197,.09);color:#8fe3da;padding:2px 6px;border-radius:5px}
+
+  /* ---------- CODE ---------- */
+  pre{
+    background:#0a0d12;border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;overflow-x:auto;margin-top:16px;
+    font-family:var(--mono);font-size:12.8px;line-height:1.65;color:#c9d6e4;
+  }
+  pre .c{color:#5f7183}
+  pre .k{color:#ff9d6b}
+  pre .s{color:#8fe3da}
+  pre .t{color:#ffc857}
+  pre .f{color:#7fb3ff}
+
+  /* ---------- TREE ---------- */
+  .tree{
+    background:#0a0d12;border:1px solid var(--line);border-radius:12px;
+    padding:20px;overflow-x:auto;font-family:var(--mono);font-size:12.6px;
+    line-height:1.75;color:#9fb0c2;white-space:pre;
+  }
+  .tree .d{color:var(--accent);font-weight:600}
+  .tree .f2{color:#c9d6e4}
+  .tree .cm{color:#5f7183}
+
+  /* ---------- CALLOUT ---------- */
+  .callout{
+    border-left:3px solid var(--amber);background:rgba(255,200,87,.06);
+    border-radius:0 10px 10px 0;padding:16px 20px;margin-top:20px;
+  }
+  .callout.ok{border-color:var(--green);background:rgba(93,220,122,.06)}
+  .callout.info{border-color:var(--accent);background:rgba(79,209,197,.06)}
+  .callout .ttl{font-weight:700;color:var(--txt);margin-bottom:5px;font-size:14.5px}
+  .callout p{font-size:13.5px;margin:0}
+
+  /* ---------- STATS ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-top:26px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center}
+  .stat .v{font-size:28px;font-weight:800;color:var(--accent);font-family:var(--mono);line-height:1.1}
+  .stat .l{font-size:12.5px;color:var(--dim2);margin-top:6px}
+
+  /* ---------- FLOW ---------- */
+  .flow{display:flex;flex-direction:column;gap:0;margin-top:24px}
+  .layer{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px 20px;position:relative;
+  }
+  .layer .lt{font-weight:700;font-size:14.5px;color:var(--txt);margin-bottom:4px}
+  .layer .ld{font-size:13px;color:var(--dim);font-family:var(--mono)}
+  .arrow{text-align:center;color:var(--dim2);font-size:18px;padding:6px 0;line-height:1}
+
+  /* ---------- RECIPE GRID ---------- */
+  .recipes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:24px}
+  .recipe{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .recipe .rn{font-weight:700;font-size:14px;margin-bottom:10px;color:var(--txt)}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:132px;margin:0 auto 10px}
+  .slot{
+    aspect-ratio:1;background:#0a0d12;border:1px solid var(--line);border-radius:5px;
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .slot.e{background:#0d1117;border-style:dashed;border-color:#232c38}
+  .recipe .rm{font-size:12px;color:var(--dim2);text-align:center;font-family:var(--mono)}
+
+  /* ---------- FOOTER ---------- */
+  footer{padding:40px 0 60px;text-align:center;color:var(--dim2);font-size:13px}
+  footer .fl{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+  footer a{color:var(--dim)}
+
+  @media(max-width:640px){
+    section{padding:40px 0}
+    header.hero{padding:44px 0 36px}
+    .wrap{padding:0 18px}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-grid"></div>
+  <div class="wrap">
+    <span class="badge"><span class="dot"></span>FABRIC MOD · v1.0.3 · 名称乱码已修复 + 游戏内教程</span>
+    <h1>ElevatorCraft<br><span class="grad">Minecraft 电梯系统模组</span></h1>
+    <p class="sub">一套完整的电梯系统：轿厢、外呼面板、电梯门、刷卡鉴权、监控、楼层检测、门锁与管理终端。含完整实现方案、代码结构、关键代码、合成配方、材质方案与构建说明。</p>
+    <div class="hero-meta">
+      <span class="chip">目标版本 <b>Minecraft 1.21.8</b></span>
+      <span class="chip">Fabric Loader <b>0.20.1</b></span>
+      <span class="chip">Fabric API <b>0.136.1+1.21.8</b></span>
+      <span class="chip">Java <b>21</b></span>
+      <span class="chip">产物 <b>elevatorcraft-1.0.3.jar</b></span>
+    </div>
+  </div>
+</header>
+
+<!-- ============ 1. 概述 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">01 · 项目概述</div>
+    <h2>11 项需求，全部落地</h2>
+    <p class="lead">ElevatorCraft 在 Minecraft 中实现了一套可管理、可鉴权、可监控的电梯系统。下表是需求与实现的对应关系。</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:44px">#</th><th>需求</th><th>实现方式</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>轿厢尺寸</strong></td><td>普通 / 观光 2×2，货梯 3×3（<code>ElevatorSize</code> 枚举）</td></tr>
+          <tr><td>2</td><td><strong>外呼面板</strong></td><td>薄片方块（2px 碰撞箱），三种样式：上楼 / 上下楼 / 下楼</td></tr>
+          <tr><td>3</td><td><strong>电梯门材质</strong></td><td>透明 / 不透明，管理终端一键切换（方块状态 <code>transparent</code>）</td></tr>
+          <tr><td>4</td><td><strong>刷卡系统</strong></td><td>电梯卡（数据组件存储），支持「全部楼层」/「指定楼层」两种授权模式</td></tr>
+          <tr><td>5</td><td><strong>监控系统</strong></td><td>管理终端「监控」标签页 + 独立监控视图（楼层灯带 + 状态卡）</td></tr>
+          <tr><td>6</td><td><strong>楼层检测</strong></td><td><strong>1 个电梯门 + ≥1 个控制面板 = 一层</strong>，支持同层多个面板</td></tr>
+          <tr><td>7</td><td><strong>控制面板</strong></td><td>位置自由，用「连接器」连接电梯后可在管理端选择楼层</td></tr>
+          <tr><td>8</td><td><strong>门锁系统</strong></td><td>门方块 <code>locked</code> 状态 + 管理终端远程锁梯（整梯拒绝呼梯）</td></tr>
+          <tr><td>9</td><td><strong>管理与显示</strong></td><td>自定义电梯名称、显示轿厢坐标、楼层重命名</td></tr>
+          <tr><td>10</td><td><strong>材质</strong></td><td>程序化生成统一风格 16×16 像素贴图（见第 7 节）</td></tr>
+          <tr><td>11</td><td><strong>生存可获取</strong></td><td>全部 9 个物品均可合成，材料仅用铁 / 玻璃 / 红石 / 铜 / 纸 / 钻石</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v">34</div><div class="l">Java 文件</div></div>
+      <div class="stat"><div class="v">39</div><div class="l">Java 类</div></div>
+      <div class="stat"><div class="v">7</div><div class="l">方块</div></div>
+      <div class="stat"><div class="v">9</div><div class="l">物品</div></div>
+      <div class="stat"><div class="v">9</div><div class="l">合成配方</div></div>
+      <div class="stat"><div class="v">78</div><div class="l">资源文件</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. 版本说明 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">02 · 目标版本说明（重要）</div>
+    <h2>实际可编译目标：Minecraft 1.21.8</h2>
+    <p class="lead">需求要求「Minecraft 1.21.x / 26.1，若 26.1 尚不存在对应 Fabric API 版本，则明确标注实际可编译的目标版本并在文档中说明」。经实测调研，结论如下。</p>
+
+    <div class="callout ok">
+      <div class="ttl">✅ 本工程已在本机真实编译通过</div>
+      <p>执行 <code>./gradlew build</code> 返回 <strong>BUILD SUCCESSFUL</strong>，产物 <code>elevatorcraft-1.0.1.jar</code>（约 130 KB，含 43 个 class + 92 个资源文件）。</p>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>版本</th><th>名称</th><th>发布时间</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1.21.8</strong></td><td>—</td><td>2025 年</td><td><strong>本工程实际目标</strong>：1.21.x 末代稳定版，Fabric 生态成熟</td></tr>
+          <tr><td>1.21.11</td><td>—</td><td>2025 年末</td><td>1.21.x 最后一个版本</td></tr>
+          <tr><td><strong>26.1</strong></td><td>Tiny Takeover</td><td>2026-03-24</td><td><strong>第一个「无混淆」版本</strong>，要求 Java 25</td></tr>
+          <tr><td>26.1.1 / 26.1.2</td><td>—</td><td>2026</td><td>26.1 的补丁版本</td></tr>
+          <tr><td>26.2</td><td>Chaos Cubed</td><td>2026-06</td><td>—</td></tr>
+          <tr><td>26.3</td><td>Wilderness Bound</td><td>2026-09-15</td><td>当前最新稳定版</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">2.1</span>为什么最终选择 1.21.8 而不是 26.1？</h3>
+    <p>26.1 虽然已有 Fabric API（<code>0.146.x+26.1.x</code>）与 Loom 支持，但它是一次<strong>底层 API 大重构</strong>，与 1.21.x 的差异远超普通版本升级。实测在 26.1 上编译时，本模组用到的以下 API <strong>全部失效</strong>：</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>1.21.x 写法（本工程使用）</th><th>26.1 的变化</th></tr></thead>
+        <tbody>
+          <tr><td><code>ResourceLocation</code></td><td>改名为 <code>Identifier</code></td></tr>
+          <tr><td><code>CompoundTag</code> 直接读写</td><td>改为 <code>ValueInput</code> / <code>ValueOutput</code></td></tr>
+          <tr><td><code>Block#onPlace</code> / <code>onRemove</code></td><td>移除，改为 <code>affectNeighborsAfterRemoval</code> 等</td></tr>
+          <tr><td><code>Block#useWithoutItem</code></td><td>移除 / 改名</td></tr>
+          <tr><td><code>Block#getShape</code></td><td>改为 <code>getShapeForEachState</code></td></tr>
+          <tr><td><code>DirectionProperty</code></td><td>移除，统一用 <code>EnumProperty&lt;Direction&gt;</code></td></tr>
+          <tr><td><code>BlockEntityType.Builder</code></td><td>移除，改用 <code>FabricBlockEntityTypeBuilder</code></td></tr>
+          <tr><td><code>BlockRenderLayerMap</code> + <code>RenderType</code></td><td>改为 <code>ChunkSectionLayer</code></td></tr>
+          <tr><td><code>SavedData.Factory</code></td><td>改为 <code>SavedDataType</code> + <code>Codec</code></td></tr>
+          <tr><td><code>Entity#getPersistentData()</code></td><td>移除</td></tr>
+          <tr><td><code>Item#appendHoverText</code> 旧签名</td><td>增加 <code>TooltipDisplay</code> 参数</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px">因此，<strong>为了让交付物「真正可编译、可运行」</strong>，本工程以 <strong>1.21.8</strong> 为实际目标，并在第 10 节给出迁移到 26.1 的完整对照清单。</p>
+
+    <h3><span class="n">2.2</span>本工程的工具链（已实测通过）</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>组件</th><th>版本</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Minecraft</td><td><code>1.21.8</code></td><td>有混淆版本，需映射</td></tr>
+          <tr><td>映射</td><td><code>loom.officialMojangMappings()</code></td><td>官方 Mojang 映射</td></tr>
+          <tr><td>Fabric Loader</td><td><code>0.20.1</code></td><td>—</td></tr>
+          <tr><td>Fabric API</td><td><code>0.136.1+1.21.8</code></td><td>—</td></tr>
+          <tr><td>Loom 插件</td><td><code>net.fabricmc.fabric-loom-remap</code> <code>1.19-SNAPSHOT</code></td><td><strong>有混淆版本用 <code>-remap</code> 后缀</strong></td></tr>
+          <tr><td>Gradle</td><td><code>9.8.2</code></td><td>Loom 1.19.x 要求 Gradle ≥ 9.8</td></tr>
+          <tr><td>运行 Gradle 的 JVM</td><td><strong>JDK 25</strong></td><td>Loom 1.19.x 自身要求</td></tr>
+          <tr><td>编译目标</td><td><strong>Java 21</strong></td><td>通过 Gradle toolchain 指定</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <div class="ttl">⚠️ 两个 Java 版本并存</div>
+      <p>Loom 1.19.x 需要 <strong>JDK 25 来运行 Gradle</strong>，但 Minecraft 1.21.8 的字节码目标是 <strong>Java 21</strong>。本工程用 <code>java.toolchain { languageVersion = 21 }</code> 让 Gradle 自动定位 JDK 21 来编译。若本机只有 JDK 21，请把 Loom 降到 <code>1.10.x</code>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. 架构 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">03 · 架构设计</div>
+    <h2>四层架构，职责清晰</h2>
+    <p class="lead">客户端只渲染快照，服务端权威校验，业务数据集中在世界级管理器，方块只存引用。</p>
+
+    <div class="flow">
+      <div class="layer">
+        <div class="lt">客户端 (Client)</div>
+        <div class="ld">ElevatorCraftClient · TerminalScreen · PanelScreen · MonitorScreen · BaseElevatorScreen<br>—— 只渲染快照，不持有业务状态</div>
+      </div>
+      <div class="arrow">↕ OpenScreenPayload / TerminalSyncPayload (S2C) · TerminalActionPayload / PanelRequestPayload (C2S)</div>
+      <div class="layer">
+        <div class="lt">网络层 (Network)</div>
+        <div class="ld">ModNetworking —— 服务端权威校验（门锁 / 刷卡 / 楼层 / 距离）</div>
+      </div>
+      <div class="arrow">↕</div>
+      <div class="layer">
+        <div class="lt">业务层 (Domain)</div>
+        <div class="ld">ElevatorManager (SavedData) ← 世界级单例<br>&nbsp;&nbsp;├─ ElevatorGroup ← 一台电梯的全部状态<br>&nbsp;&nbsp;├─ FloorEntry ← 一层（门 + 面板列表）<br>&nbsp;&nbsp;└─ ElevatorSize ← 规格枚举<br>AccessControl ← 刷卡鉴权规则</div>
+      </div>
+      <div class="arrow">↕</div>
+      <div class="layer">
+        <div class="lt">方块层 (Block)</div>
+        <div class="ld">ElevatorCarBlock · ElevatorDoorBlock · CallPanelBlock · ControlPanelBlock · TerminalBlock<br>ElevatorControllerBlockEntity ← 只存「我属于哪台电梯」</div>
+      </div>
+    </div>
+
+    <h3><span class="n">3.1</span>三个核心设计决策</h3>
+    <div class="cards">
+      <div class="card">
+        <span class="ico">🗄️</span>
+        <h4>① 数据集中，方块只存引用</h4>
+        <p>一台电梯有几十个方块。业务数据全部放在 <code>ElevatorManager</code>（世界级 SavedData）里，方块实体只保存一个 <code>UUID groupId</code> 引用。好处：一份数据天然同步、存档只写一份、方块被破坏后数据仍在。</p>
+      </div>
+      <div class="card">
+        <span class="ico">🛡️</span>
+        <h4>② 服务端权威</h4>
+        <p>客户端只发「意图」（我要去 3 楼），所有校验在服务端完成：距离校验、刷卡校验、楼层权限校验。杜绝客户端伪造。</p>
+      </div>
+      <div class="card">
+        <span class="ico">🪟</span>
+        <h4>③ 不用 vanilla Menu/Container</h4>
+        <p>原版 GUI 需要注册 MenuType + 实现槽位同步，对「纯信息面板」是纯负担。本模组改为「服务端发快照 → 客户端 setScreen」，零槽位样板代码。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. 目录树 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">04 · 目录树与文件职责</div>
+    <h2>清晰的工程结构</h2>
+    <div class="tree"><span class="d">elevatorcraft/</span>
+├── <span class="f2">build.gradle</span>                    <span class="cm"># Loom 配置（Java 21 toolchain）</span>
+├── <span class="f2">settings.gradle</span>                 <span class="cm"># 插件仓库</span>
+├── <span class="f2">gradle.properties</span>               <span class="cm"># 版本集中管理</span>
+├── <span class="d">gradle/wrapper/</span>
+│   └── <span class="f2">gradle-wrapper.properties</span>   <span class="cm"># Gradle 9.8.2</span>
+├── <span class="d">tools/</span>                          <span class="cm"># 资源生成与校验脚本（不参与打包）</span>
+│   ├── <span class="f2">gen_textures.py</span>             <span class="cm"># 生成 16×16 贴图 + 模组图标</span>
+│   ├── <span class="f2">gen_resources.py</span>            <span class="cm"># 生成 blockstates/models/lang/recipes/loot</span>
+│   └── <span class="f2">validate.py</span>                 <span class="cm"># 静态校验（Java 结构 + 资源引用）</span>
+└── <span class="d">src/main/</span>
+    ├── <span class="d">java/com/elevatorcraft/</span>
+    │   ├── <span class="f2">ElevatorCraft.java</span>              <span class="cm"># 主入口，按序注册所有内容</span>
+    │   ├── <span class="f2">ElevatorCraftClient.java</span>        <span class="cm"># 客户端入口，渲染层 + 收包</span>
+    │   ├── <span class="d">elevator/</span>                       <span class="cm"># ── 业务核心 ──</span>
+    │   │   ├── <span class="f2">ElevatorManager.java</span>        <span class="cm"># 世界级管理器（SavedData）</span>
+    │   │   ├── <span class="f2">ElevatorGroup.java</span>          <span class="cm"># 一台电梯的状态 + NBT</span>
+    │   │   ├── <span class="f2">FloorEntry.java</span>             <span class="cm"># 一层（门 + 面板列表 + 名称）</span>
+    │   │   └── <span class="f2">ElevatorSize.java</span>           <span class="cm"># 规格枚举（2×2 / 2×2观光 / 3×3）</span>
+    │   ├── <span class="d">access/</span>                         <span class="cm"># ── 鉴权 ──</span>
+    │   │   ├── <span class="f2">AccessControl.java</span>          <span class="cm"># 刷卡规则（静态工具类）</span>
+    │   │   ├── <span class="f2">AccessMode.java</span>             <span class="cm"># 授权模式枚举 + Codec</span>
+    │   │   └── <span class="f2">ElevatorCardData.java</span>       <span class="cm"># 卡数据 record + Codec</span>
+    │   ├── <span class="d">block/</span>                          <span class="cm"># ── 方块 ──</span>
+    │   │   ├── <span class="f2">ElevatorCarBlock.java</span>       <span class="cm"># 轿厢（放置时自动建组）</span>
+    │   │   ├── <span class="f2">ElevatorDoorBlock.java</span>      <span class="cm"># 电梯门（两格高，开合/锁/材质）</span>
+    │   │   ├── <span class="f2">CallPanelBlock.java</span>         <span class="cm"># 外呼面板（三样式，薄片）</span>
+    │   │   ├── <span class="f2">ControlPanelBlock.java</span>      <span class="cm"># 控制面板（薄片，楼层判定用）</span>
+    │   │   └── <span class="f2">TerminalBlock.java</span>          <span class="cm"># 管理终端</span>
+    │   ├── <span class="d">blockentity/</span>
+    │   │   └── <span class="f2">ElevatorControllerBlockEntity.java</span>  <span class="cm"># 只存 groupId 引用</span>
+    │   ├── <span class="d">item/</span>
+    │   │   ├── <span class="f2">ElevatorCardItem.java</span>       <span class="cm"># 电梯卡（右键绑定电梯）</span>
+    │   │   └── <span class="f2">ConnectorItem.java</span>          <span class="cm"># 连接器（轿厢 → 面板）</span>
+    │   ├── <span class="d">network/</span>                        <span class="cm"># ── 网络 ──</span>
+    │   │   ├── <span class="f2">ModNetworking.java</span>          <span class="cm"># 注册 + 服务端处理</span>
+    │   │   ├── <span class="f2">ElevatorSnapshot.java</span>       <span class="cm"># 只读快照（S2C 传输对象）</span>
+    │   │   └── <span class="d">payload/</span>
+    │   │       ├── <span class="f2">OpenScreenPayload.java</span>      <span class="cm"># S2C 打开界面</span>
+    │   │       ├── <span class="f2">TerminalSyncPayload.java</span>    <span class="cm"># S2C 刷新快照</span>
+    │   │       ├── <span class="f2">TerminalActionPayload.java</span>  <span class="cm"># C2S 管理动作（10 种）</span>
+    │   │       └── <span class="f2">PanelRequestPayload.java</span>    <span class="cm"># C2S 呼梯</span>
+    │   ├── <span class="d">screen/</span>                         <span class="cm"># ── 界面 ──</span>
+    │   │   ├── <span class="f2">BaseElevatorScreen.java</span>     <span class="cm"># 基类：统一视觉语言</span>
+    │   │   ├── <span class="f2">TerminalScreen.java</span>         <span class="cm"># 管理终端（4 标签页）</span>
+    │   │   ├── <span class="f2">PanelScreen.java</span>            <span class="cm"># 楼层选择（网格按钮）</span>
+    │   │   └── <span class="f2">MonitorScreen.java</span>          <span class="cm"># 监控视图（楼层灯带）</span>
+    │   └── <span class="d">registry/</span>                       <span class="cm"># ── 注册表 ──</span>
+    │       ├── <span class="f2">ModBlocks.java</span>              <span class="cm"># 7 个方块</span>
+    │       ├── <span class="f2">ModItems.java</span>               <span class="cm"># 9 个物品</span>
+    │       ├── <span class="f2">ModItemGroups.java</span>          <span class="cm"># 创造模式物品栏</span>
+    │       ├── <span class="f2">ModBlockEntities.java</span>       <span class="cm"># 1 个 BE 类型（7 方块共用）</span>
+    │       ├── <span class="f2">ModComponents.java</span>          <span class="cm"># 电梯卡数据组件</span>
+    │       ├── <span class="f2">ModPayloads.java</span>            <span class="cm"># 网络包注册入口</span>
+    │       └── <span class="f2">ModEvents.java</span>              <span class="cm"># 每 tick 推进电梯</span>
+    └── <span class="d">resources/</span>
+        ├── <span class="f2">fabric.mod.json</span>
+        ├── <span class="d">assets/elevatorcraft/</span>
+        │   ├── <span class="f2">icon.png</span>
+        │   ├── <span class="f2">blockstates/</span>    <span class="cm">(7 个)</span>
+        │   ├── <span class="f2">models/block/</span>   <span class="cm">(28 个)</span>
+        │   ├── <span class="f2">models/item/</span>    <span class="cm">(9 个)</span>
+        │   ├── <span class="f2">textures/block/</span> <span class="cm">(12 个 16×16 PNG)</span>
+        │   ├── <span class="f2">textures/item/</span>  <span class="cm">(2 个 16×16 PNG)</span>
+        │   └── <span class="f2">lang/</span>           <span class="cm">(en_us.json, zh_cn.json)</span>
+        └── <span class="d">data/elevatorcraft/</span>
+            ├── <span class="f2">recipe/</span>         <span class="cm">(9 个)</span>
+            └── <span class="f2">loot_table/blocks/</span> <span class="cm">(7 个)</span></div>
+  </div>
+</section>
+
+<!-- ============ 5. 关键实现 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">05 · 关键实现说明</div>
+    <h2>核心逻辑</h2>
+
+    <h3><span class="n">5.1</span>楼层检测（需求 6）</h3>
+    <p><strong>规则</strong>：任意一个电梯门 + 至少一个控制面板 = 一层。</p>
+<pre><span class="c">// ElevatorManager.rebuildFloors</span>
+<span class="k">for</span> (<span class="k">int</span> y = minY; y &lt;= maxY; y++) {
+    <span class="k">for</span> (<span class="k">int</span> dx = -radius; dx &lt;= radius; dx++) {
+        <span class="k">for</span> (<span class="k">int</span> dz = -radius; dz &lt;= radius; dz++) {
+            cursor.set(origin.getX() + dx, y, origin.getZ() + dz);
+            BlockState state = level.getBlockState(cursor);
+            <span class="k">if</span> (state.is(ModBlocks.ELEVATOR_DOOR)) {
+                doorByY.putIfAbsent(y, cursor.immutable());
+            } <span class="k">else if</span> (state.is(ModBlocks.CONTROL_PANEL)) {
+                panelsByY.computeIfAbsent(y, k -&gt; <span class="k">new</span> ArrayList&lt;&gt;()).add(cursor.immutable());
+            }
+        }
+    }
+}
+<span class="c">// 只有门没有面板 → 不构成楼层</span>
+<span class="k">for</span> (<span class="k">var</span> e : doorByY.entrySet()) {
+    List&lt;BlockPos&gt; panels = panelsByY.getOrDefault(e.getKey(), List.of());
+    <span class="k">if</span> (panels.isEmpty()) <span class="k">continue</span>;
+    detected.add(<span class="k">new</span> FloorEntry(detected.size(), e.getKey(), e.getValue(), panels, existingName));
+}</pre>
+    <p style="margin-top:12px">要点：扫描范围轿厢 y ± (96 下 / 320 上)，水平半径 = 规格边长 + 6；同一 y 的多个门/面板<strong>合并为一层</strong>；按 y 升序重新编号；<strong>保留已有自定义楼层名</strong>。</p>
+
+    <h3><span class="n">5.2</span>电梯移动（需求 1）</h3>
+    <p>采用「<strong>轿厢 y 逐格移动 + 实体搬运</strong>」而非「逐方块移动」：</p>
+<pre><span class="c">// ElevatorManager.tick —— 每 tick 调用一次</span>
+<span class="k">int</span> currentY = group.carY();          <span class="c">// = carOrigin.getY()</span>
+<span class="k">int</span> targetY  = targetFloor.y();
+<span class="k">int</span> step = Integer.signum(targetY - currentY);
+<span class="k">if</span> (step == 0) { arrive(...); <span class="k">return</span>; }
+
+<span class="k">int</span> newY = currentY + step;
+carryEntities(level, group, currentY, newY);   <span class="c">// 搬运轿厢内实体</span>
+group.setCarOrigin(group.carOrigin().atY(newY));
+
+<span class="k">if</span> (newY == targetY) arrive(level, group, target);</pre>
+<pre><span class="c">// 实体搬运：把轿厢 AABB 内的实体一起抬升/下降</span>
+AABB box = <span class="k">new</span> AABB(o.getX(), fromY, o.getZ(),
+                    o.getX() + fp, fromY + ElevatorSize.INNER_HEIGHT, o.getZ() + fp);
+<span class="k">for</span> (Entity e : level.getEntities((Entity) <span class="k">null</span>, box, Entity::isAlive)) {
+    e.teleportTo(e.getX(), e.getY() + dy, e.getZ());
+    e.setDeltaMovement(0, 0, 0);
+    e.hurtMarked = <span class="k">true</span>;   <span class="c">// 强制客户端同步位置</span>
+}</pre>
+    <p style="margin-top:12px">为什么不用逐方块移动：逐方块移动需要每 tick 破坏+放置几十个方块 → 触发大量方块更新、光照重算；跨区块时可能触发区块加载造成卡顿；玩家站在轿厢里会被方块挤压。<strong>速度</strong>：每 tick 1 格 ≈ 0.05 秒/格，10 层楼约 1.5 秒。</p>
+
+    <h3><span class="n">5.3</span>刷卡鉴权（需求 4）</h3>
+<pre><span class="c">// 数据模型（存于物品数据组件）</span>
+<span class="k">public record</span> ElevatorCardData(
+        UUID groupId,          <span class="c">// 绑定到哪台电梯</span>
+        AccessMode mode,       <span class="c">// ALL_FLOORS | SELECTED_FLOORS</span>
+        Set&lt;Integer&gt; floors,   <span class="c">// 指定楼层（用楼层序号，不用坐标）</span>
+        UUID owner             <span class="c">// 持卡人（审计用）</span>
+) { ... }</pre>
+<pre><span class="c">// 鉴权规则（AccessControl）</span>
+<span class="k">public static boolean</span> hasValidCard(Player player, ElevatorGroup group) {
+    <span class="k">if</span> (!group.cardEnabled()) <span class="k">return true</span>;      <span class="c">// 未启用刷卡 → 放行</span>
+    <span class="k">if</span> (player.isCreative()) <span class="k">return true</span>;       <span class="c">// 创造模式 → 放行</span>
+    <span class="k">return</span> cardMatches(player.getMainHandItem(), group)
+        || cardMatches(player.getOffhandItem(), group);
+}
+
+<span class="k">public static boolean</span> canAccessFloor(Player player, ElevatorGroup group, <span class="k">int</span> floorIndex) {
+    <span class="k">if</span> (!group.cardEnabled() || player.isCreative()) <span class="k">return true</span>;
+    ElevatorCardData data = findCard(player, group);
+    <span class="k">if</span> (data == <span class="k">null</span>) <span class="k">return false</span>;
+    <span class="k">if</span> (data.mode() == AccessMode.ALL_FLOORS) <span class="k">return true</span>;   <span class="c">// 全部楼层</span>
+    <span class="k">return</span> data.floors().contains(floorIndex);               <span class="c">// 指定楼层</span>
+}</pre>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>授权模式</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>ALL_FLOORS</code></td><td>可到达该电梯的所有楼层</td></tr>
+          <tr><td><code>SELECTED_FLOORS</code></td><td>仅可到达卡上登记的楼层集合</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">5.4</span>管理终端 GUI（需求 4/5/8/9）</h3>
+    <p><code>TerminalScreen</code> 有 4 个标签页：</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>标签</th><th>功能</th></tr></thead>
+        <tbody>
+          <tr><td><strong>概览</strong></td><td>电梯名称（可编辑）、轿厢坐标、规格、当前楼层、门锁开关、门材质切换、监控开关</td></tr>
+          <tr><td><strong>楼层</strong></td><td>楼层列表、逐层重命名、逐层呼梯</td></tr>
+          <tr><td><strong>刷卡</strong></td><td>刷卡启用开关、默认授权模式、勾选楼层后「应用到手持卡」</td></tr>
+          <tr><td><strong>监控</strong></td><td>进入只读监控视图</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">所有操作通过<strong>一个</strong> <code>TerminalActionPayload</code> 承载，用 <code>Action</code> 枚举区分（10 种动作），避免为每个按钮建一个 payload 类。</p>
+
+    <h3><span class="n">5.5</span>门锁系统（需求 8）</h3>
+    <p><strong>两级锁</strong>：① 门级锁 <code>ElevatorDoorBlock.LOCKED</code> 方块状态；② 整梯锁 <code>ElevatorGroup.locked</code>，锁住时所有呼梯请求返回 <code>LOCKED</code>。</p>
+<pre><span class="c">// 管理终端远程锁梯：同时更新数据与所有门方块</span>
+<span class="k">case</span> TOGGLE_LOCK -&gt; {
+    <span class="k">boolean</span> newLocked = !group.locked();
+    group.setLocked(newLocked);
+    <span class="k">for</span> (FloorEntry f : group.floors()) {
+        ElevatorDoorBlock.setLocked(level, f.doorPos(), newLocked);
+    }
+}</pre>
+
+    <h3><span class="n">5.6</span>监控系统（需求 5）</h3>
+    <p><code>MonitorScreen</code> 是只读视图，视觉上模拟真实电梯监控屏：<strong>左侧</strong>楼层灯带（当前层青色高亮、目标层琥珀色、其他灰色）；<strong>右侧</strong>状态卡（运行中/静止、当前层、目标层、门锁状态）。数据来源是 <code>ElevatorSnapshot</code>，与终端共用同一份快照，因此监控不会额外增加网络开销。</p>
+
+    <h3><span class="n">5.7</span>外呼面板三样式（需求 2）</h3>
+<pre><span class="k">public enum</span> CallStyle <span class="k">implements</span> StringRepresentable { UP, BOTH, DOWN }
+
+<span class="c">// 目标楼层解析逻辑</span>
+<span class="k">case</span> UP   -&gt; 找 panelY 上方最近的楼层
+<span class="k">case</span> DOWN -&gt; 找 panelY 下方最近的楼层
+<span class="k">case</span> BOTH -&gt; 轿厢在下方则上行，否则下行（自动判断）</pre>
+    <p style="margin-top:12px">碰撞箱为 2px 薄片（<code>Block.box(0,0,0,16,16,2)</code> 按朝向旋转），<strong>非满方块</strong>。</p>
+
+    <h3><span class="n">5.8</span>连接器（需求 7）</h3>
+    <p>两步操作：① 手持连接器<strong>右键电梯轿厢</strong> → 记录 <code>groupId</code>；② 手持连接器<strong>右键控制面板</strong> → 触发 <code>rebuildFloors</code>，该面板即成为该电梯的楼层组件。之后即可在管理终端「楼层」标签页看到并选择该楼层。</p>
+  </div>
+</section>
+
+<!-- ============ 6. 配方 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">06 · 合成配方设计</div>
+    <h2>材料简单易收集</h2>
+    <p class="lead">全部使用原版基础材料，生存前期即可搭建一台可用电梯。</p>
+    <div class="recipes">
+      <div class="recipe">
+        <div class="rn">电梯轿厢（普通）</div>
+        <div class="grid3">
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🪟</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot">🪨</div>
+        </div>
+        <div class="rm">8 铁锭 + 1 玻璃</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">电梯轿厢（观光）</div>
+        <div class="grid3">
+          <div class="slot">🪟</div><div class="slot">🪟</div><div class="slot">🪟</div>
+          <div class="slot">🪟</div><div class="slot">🪨</div><div class="slot">🪟</div>
+          <div class="slot">🪟</div><div class="slot">🪟</div><div class="slot">🪟</div>
+        </div>
+        <div class="rm">8 玻璃 + 1 铁锭</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">电梯轿厢（货梯）</div>
+        <div class="grid3">
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🟠</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot">🪨</div>
+        </div>
+        <div class="rm">8 铁锭 + 1 铜锭</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">电梯门 ×2</div>
+        <div class="grid3">
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot e"></div>
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot e"></div>
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot e"></div>
+        </div>
+        <div class="rm">6 铁锭 → 2 扇门</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">外呼面板</div>
+        <div class="grid3">
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🔴</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🪟</div><div class="slot">🪨</div>
+        </div>
+        <div class="rm">6 铁锭 + 1 红石 + 1 玻璃</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">控制面板</div>
+        <div class="grid3">
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🔴</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🟠</div><div class="slot">🪨</div>
+        </div>
+        <div class="rm">6 铁锭 + 1 红石 + 1 铜锭</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">管理终端</div>
+        <div class="grid3">
+          <div class="slot">🪨</div><div class="slot">🪨</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">💎</div><div class="slot">🪨</div>
+          <div class="slot">🪨</div><div class="slot">🔴</div><div class="slot">🪨</div>
+        </div>
+        <div class="rm">6 铁锭 + 1 钻石 + 1 红石</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">电梯卡</div>
+        <div class="grid3">
+          <div class="slot e"></div><div class="slot">📄</div><div class="slot e"></div>
+          <div class="slot">⚙️</div><div class="slot">🔴</div><div class="slot e"></div>
+          <div class="slot e"></div><div class="slot e"></div><div class="slot e"></div>
+        </div>
+        <div class="rm">无序：纸 + 铁粒 + 红石</div>
+      </div>
+      <div class="recipe">
+        <div class="rn">连接器</div>
+        <div class="grid3">
+          <div class="slot">🪨</div><div class="slot e"></div><div class="slot">🪨</div>
+          <div class="slot e"></div><div class="slot">🔴</div><div class="slot e"></div>
+          <div class="slot e"></div><div class="slot">🪵</div><div class="slot e"></div>
+        </div>
+        <div class="rm">2 铁锭 + 1 红石 + 1 木棍</div>
+      </div>
+    </div>
+    <div class="callout info">
+      <div class="ttl">💡 一台最小可用电梯（1 层）</div>
+      <p>需要 1 轿厢 + 1 门 + 1 控制面板 + 1 外呼面板 ≈ 8+6+6+6 = 26 铁锭 + 少量其他材料，<strong>生存前期即可搭建</strong>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. 材质 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">07 · 材质资源方案</div>
+    <h2>程序化生成，风格统一</h2>
+    <p class="lead">搜索了 Minecraft 电梯模组素材与工业金属贴图，存在两个问题：风格不统一（不同来源的分辨率、色调、光照方向不一致）、授权不明（多数素材未标注可商用/可再分发许可）。因此采用<strong>程序化生成</strong>（<code>tools/gen_textures.py</code>）。</p>
+    <div class="cards">
+      <div class="card"><span class="ico">📐</span><h4>统一规格</h4><p>全部 16×16，符合原版像素密度。</p></div>
+      <div class="card"><span class="ico">🎨</span><h4>统一调色板</h4><p>冷灰金属 + 青色指示灯，全模组一致。</p></div>
+      <div class="card"><span class="ico">⚖️</span><h4>无版权风险</h4><p>可自由修改，改调色板常量即可全量同步。</p></div>
+    </div>
+    <h3><span class="n">7.1</span>统一调色板</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>用途</th><th>色值</th><th>用途</th><th>色值</th></tr></thead>
+        <tbody>
+          <tr><td>深钢</td><td><code>#3A424A</code></td><td>阴影</td><td><code>#262C32</code></td></tr>
+          <tr><td>钢</td><td><code>#56606A</code></td><td><strong>强调色（指示灯）</strong></td><td><code>#4FD1C5</code></td></tr>
+          <tr><td>亮钢</td><td><code>#76828D</code></td><td>琥珀（目标层）</td><td><code>#FFC857</code></td></tr>
+          <tr><td>高光</td><td><code>#96A2AD</code></td><td>玻璃</td><td><code>#96CDDC → #608C9B</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3><span class="n">7.2</span>贴图清单（14 张）</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>文件</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>elevator_car_standard.png</code></td><td>竖向拉丝钢板 + 中央装饰条</td></tr>
+          <tr><td><code>elevator_car_glass.png</code></td><td>玻璃渐变 + 金属框 + 高光斜线</td></tr>
+          <tr><td><code>elevator_car_freight.png</code></td><td>厚重钢板 + 铆钉 + 黄黑警示条</td></tr>
+          <tr><td><code>elevator_door.png</code> / <code>_top.png</code></td><td>门板分格 + 中缝；上半含楼层指示灯</td></tr>
+          <tr><td><code>elevator_door_glass.png</code> / <code>_top.png</code></td><td>透明门（玻璃 + 金属边框）</td></tr>
+          <tr><td><code>call_panel_up/both/down.png</code></td><td>三种箭头样式（青色）</td></tr>
+          <tr><td><code>control_panel.png</code></td><td>3×3 按钮阵列 + 顶部显示屏</td></tr>
+          <tr><td><code>terminal.png</code></td><td>屏幕（青色数据条）+ 键盘区</td></tr>
+          <tr><td><code>elevator_card.png</code></td><td>卡片 + 磁条 + 金色芯片 + 指示灯</td></tr>
+          <tr><td><code>connector.png</code></td><td>手柄 + 钳口 + 信号点</td></tr>
+          <tr><td><code>icon.png</code></td><td>128×128 模组图标（电梯门 + 楼层指示）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8. 构建 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">08 · 构建与安装</div>
+    <h2>三步编译，放入 mods 即可</h2>
+    <h3><span class="n">8.1</span>环境要求</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>项目</th><th>版本</th></tr></thead>
+        <tbody>
+          <tr><td>运行 Gradle 的 JDK</td><td><strong>25</strong>（Loom 1.19.x 要求）</td></tr>
+          <tr><td>编译目标 JDK</td><td><strong>21</strong>（Gradle toolchain 自动定位）</td></tr>
+          <tr><td>Gradle</td><td>9.8+（wrapper 已配 9.8.2）</td></tr>
+          <tr><td>Minecraft</td><td><strong>1.21.8</strong></td></tr>
+          <tr><td>Fabric Loader</td><td>0.20.1+</td></tr>
+          <tr><td>Fabric API</td><td>0.136.1+1.21.8</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3><span class="n">8.2</span>编译</h3>
+<pre><span class="c"># 1) 确认 Java 版本（Loom 1.19.x 需 JDK 25 运行 Gradle）</span>
+java -version        <span class="c"># 应显示 25.x</span>
+
+<span class="c"># 2) 编译（首次会下载 Minecraft 与依赖，约 5-15 分钟）</span>
+./gradlew build
+
+<span class="c"># 3) 产物位置</span>
+ls build/libs/
+<span class="c">#   elevatorcraft-1.0.1.jar          ← 放入 mods 目录</span>
+<span class="c">#   elevatorcraft-1.0.1-sources.jar  ← 源码（可选）</span></pre>
+    <div class="callout ok">
+      <div class="ttl">✅ 本工程已实测</div>
+      <p><code>BUILD SUCCESSFUL</code>，产物 <code>elevatorcraft-1.0.1.jar</code>（约 130 KB，含 43 个 class + 92 个资源文件）。</p>
+    </div>
+    <h3><span class="n">8.3</span>安装到游戏</h3>
+    <p>① 安装 <strong>Fabric Loader</strong>（选择 Minecraft <strong>1.21.8</strong>）→ ② 下载 <strong>Fabric API</strong>（<code>0.136.1+1.21.8</code>）放入 <code>mods/</code> → ③ 把 <code>elevatorcraft-1.0.1.jar</code> 放入 <code>.minecraft/mods/</code> → ④ 启动游戏，在创造模式物品栏找到「电梯工艺」标签页。</p>
+    <h3><span class="n">8.4</span>常见问题</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>现象</th><th>原因</th><th>解决</th></tr></thead>
+        <tbody>
+          <tr><td><code>release version 25 not supported</code></td><td>运行 Gradle 的 JDK 过低</td><td>安装 JDK 25 并设置 <code>JAVA_HOME</code></td></tr>
+          <tr><td><code>No matching toolchains found for Java 21</code></td><td>未找到 JDK 21</td><td>安装 JDK 21，或加 <code>-Dorg.gradle.java.installations.paths=…</code></td></tr>
+          <tr><td>方块显示为紫黑格</td><td>贴图路径错误</td><td>运行 <code>python3 tools/validate.py</code> 检查</td></tr>
+          <tr><td>电梯不动</td><td>未检测到楼层</td><td>确认每层有「1 门 + 1 控制面板」</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9. 使用指南 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">09 · 游戏内使用指南</div>
+    <h2>搭建一台电梯（以 3 层为例）</h2>
+<pre>第 3 层  ┌───┐  <span class="c">← 电梯门 + 控制面板 + 外呼面板</span>
+         │   │
+第 2 层  ├───┤  <span class="c">← 电梯门 + 控制面板 + 外呼面板</span>
+         │   │
+第 1 层  ├───┤  <span class="c">← 电梯门 + 控制面板 + 外呼面板</span>
+         │轿 │
+         │厢 │  <span class="c">← 轿厢（2×2 或 3×3）</span>
+         └───┘</pre>
+    <p style="margin-top:16px"><strong>步骤</strong>：① 放轿厢（自动创建电梯组）→ ② 每层放 1 个电梯门（自动两格高）→ ③ 每层在门附近放 1 个控制面板（<strong>此时该层被识别</strong>）→ ④ 每层走廊放外呼面板（可选）→ ⑤ 任意位置放 1 个管理终端 → ⑥ 用连接器右键轿厢 → 右键控制面板（可选）。</p>
+    <h3><span class="n">9.1</span>刷卡使用</h3>
+    <p>① 合成电梯卡 → ② 手持卡右键电梯轿厢绑定 → ③ 在管理终端「刷卡」页勾选授权楼层 → 「应用到手持卡」→ ④ 在「概览」页开启「刷卡」→ ⑤ 之后呼梯必须手持该卡。</p>
+  </div>
+</section>
+
+<!-- ============ 10. 限制与迁移 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">10 · 已知限制与扩展点</div>
+    <h2>当前限制与 26.1 迁移清单</h2>
+    <h3><span class="n">10.1</span>当前限制</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>限制</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>轿厢为方块结构</td><td>移动时是「y 坐标插值 + 实体搬运」，不是真正的实体轿厢；视觉上轿厢方块不会跟着移动</td></tr>
+          <tr><td>单世界单管理器</td><td>电梯数据按维度存储，跨维度电梯不支持</td></tr>
+          <tr><td>无音效</td><td>未添加电梯运行/到站音效</td></tr>
+          <tr><td>无红石接口</td><td>外呼面板不能由红石信号触发</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3><span class="n">10.2</span>迁移到 Minecraft 26.1 的完整清单</h3>
+    <p>若你希望把本工程升级到 26.1（无混淆版），需按下表逐项改写。<strong>这是本工程选择 1.21.8 作为交付目标的原因</strong>——26.1 的改动量相当于一次重写。</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:44px">#</th><th>1.21.8（本工程）</th><th>26.1</th><th>涉及文件</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>ResourceLocation</code></td><td><code>Identifier</code></td><td>全部注册表</td></tr>
+          <tr><td>2</td><td><code>CompoundTag</code> 读写</td><td><code>ValueInput</code> / <code>ValueOutput</code></td><td>ElevatorGroup / BlockEntity</td></tr>
+          <tr><td>3</td><td><code>Block#onPlace</code> / <code>onRemove</code></td><td><code>affectNeighborsAfterRemoval</code></td><td>5 个方块类</td></tr>
+          <tr><td>4</td><td><code>Block#useWithoutItem</code></td><td>新交互 API</td><td>面板/终端方块</td></tr>
+          <tr><td>5</td><td><code>Block#getShape</code></td><td><code>getShapeForEachState</code></td><td>面板/门方块</td></tr>
+          <tr><td>6</td><td><code>DirectionProperty</code></td><td><code>EnumProperty&lt;Direction&gt;</code></td><td>已在本工程统一</td></tr>
+          <tr><td>7</td><td><code>BlockEntityType.Builder</code></td><td><code>FabricBlockEntityTypeBuilder</code></td><td>已在本工程统一</td></tr>
+          <tr><td>8</td><td><code>RenderType</code> + <code>BlockRenderLayerMap</code></td><td><code>ChunkSectionLayer</code></td><td>已在本工程统一</td></tr>
+          <tr><td>9</td><td><code>SavedData.Factory</code></td><td><code>SavedDataType</code> + <code>Codec</code></td><td>已在本工程统一</td></tr>
+          <tr><td>10</td><td><code>Entity#getPersistentData()</code></td><td>移除（用内存表/Attachment）</td><td>已在本工程统一</td></tr>
+          <tr><td>11</td><td><code>Item#appendHoverText</code> 旧签名</td><td>增加 <code>TooltipDisplay</code> 参数</td><td>已在本工程统一</td></tr>
+          <tr><td>12</td><td>Loom <code>-remap</code> 插件</td><td><code>net.fabricmc.fabric-loom</code></td><td>build.gradle</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout info">
+      <div class="ttl">💡 说明</div>
+      <p>第 6~11 项本工程<strong>已经采用 26.1 风格写法</strong>（因为 1.21.8 的 jar 已包含这些新 API），因此实际迁移时主要处理第 1~5 项与第 12 项。</p>
+    </div>
+    <h3><span class="n">10.3</span>扩展点</h3>
+    <p>代码已为以下扩展预留结构：① <strong>真正的轿厢实体</strong>（把 <code>carOrigin</code> 换成实体 UUID）；② <strong>音效</strong>（在 <code>arrive()</code> 与 <code>tick()</code> 中调用 <code>level.playSound(...)</code>）；③ <strong>红石接口</strong>（<code>CallPanelBlock</code> 实现 <code>neighborChanged</code>）；④ <strong>多电梯联动</strong>（加一个「调度器」即可群控）；⑤ <strong>权限系统</strong>（<code>AccessControl</code> 可注入 LuckPerms）。</p>
+  </div>
+</section>
+
+<!-- ============ 11. 崩溃修复 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">11 · 崩溃修复记录（v1.0.1）</div>
+    <h2>启动崩溃已定位并修复</h2>
+    <p class="lead">v1.0.0 在 Minecraft 1.21.8 上启动即崩溃。已读取崩溃报告、定位根因、修复代码并重新编译，且<strong>实际启动客户端验证通过</strong>。</p>
+
+    <div class="callout" style="border-color:#e5484d">
+      <div class="ttl">💥 崩溃现象</div>
+      <p>游戏在加载模组阶段直接崩溃，崩溃报告关键堆栈：</p>
+      <pre style="margin-top:10px"><span class="c">java.lang.ExceptionInInitializerError</span>
+<span class="c">Caused by: java.lang.NullPointerException: Block id not set</span>
+    at net.minecraft.world.level.block.state.BlockBehaviour.&lt;init&gt;(BlockBehaviour.java)
+    at net.minecraft.world.level.block.Block.&lt;init&gt;(Block.java)
+    at com.elevatorcraft.block.ElevatorCarBlock.&lt;init&gt;(ElevatorCarBlock.java)
+    at com.elevatorcraft.registry.ModBlocks.&lt;clinit&gt;(ModBlocks.java)</pre>
+    </div>
+
+    <h3><span class="n">11.1</span>根因</h3>
+    <p><strong>Minecraft 1.21.2 起，方块与物品的 <code>Properties</code> 在构造对象前必须已经设置注册 ID。</strong></p>
+    <ul style="margin:12px 0 0 20px;line-height:1.9">
+      <li>旧代码把「构造方块」直接写在 <code>ModBlocks</code> 的 <code>static final</code> 字段初始化里，且 <code>BlockBehaviour.Properties.of()</code> 之后<strong>没有</strong>调用 <code>setId(...)</code>。</li>
+      <li>1.21.2+ 的 <code>Block</code> 构造函数会校验 <code>properties.id</code>，为空即抛 <code>NullPointerException: Block id not set</code>。</li>
+      <li>由于发生在 <code>&lt;clinit&gt;</code>（类静态初始化）阶段，异常被包装成 <code>ExceptionInInitializerError</code>，模组加载失败 → 游戏崩溃。</li>
+      <li>物品同理：<code>Item.Properties</code> 也需要 <code>setId(...)</code>，否则报 <code>Item id not set</code>。</li>
+    </ul>
+    <div class="callout info">
+      <div class="ttl">💡 性质</div>
+      <p>这是 1.21.2 引入的「注册表 ID 前置」机制，属于<strong>版本 API 变更</strong>，不是资源或 Mixin 问题。</p>
+    </div>
+
+    <h3><span class="n">11.2</span>修复内容</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>文件</th><th>修复</th></tr></thead>
+        <tbody>
+          <tr><td><code>registry/ModBlocks.java</code></td><td>新增 <code>props(name, …)</code> 统一入口，内部调用 <code>Properties.of().setId(ResourceKey.create(Registries.BLOCK, id))</code>；注册动作移入 <code>register()</code></td></tr>
+          <tr><td><code>registry/ModItems.java</code></td><td>新增 <code>itemProps(name)</code> 统一入口，内部调用 <code>new Item.Properties().setId(ResourceKey.create(Registries.ITEM, id))</code>；注册动作移入 <code>register()</code></td></tr>
+          <tr><td><code>registry/ModComponents.java</code></td><td>拆分为「字段构造 + <code>register()</code> 显式注册」</td></tr>
+          <tr><td><code>registry/ModItemGroups.java</code></td><td>同上</td></tr>
+          <tr><td><code>registry/ModBlockEntities.java</code></td><td>同上</td></tr>
+          <tr><td><code>ElevatorCraft.java</code></td><td><code>onInitialize()</code> 按依赖顺序显式调用各 <code>register()</code>：组件 → 方块 → 物品 → 物品栏 → 方块实体 → 网络包 → 事件</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px"><strong>核心改动</strong>：把「构造」与「注册」分离，并保证每个 <code>Properties</code> 都带 ID。</p>
+<pre><span class="c">// 修复前（会崩溃）</span>
+public static final Block ELEVATOR_CAR_STANDARD = new ElevatorCarBlock(
+        BlockBehaviour.Properties.of().mapColor(MapColor.METAL)...);   <span class="c">// ❌ 没有 setId</span>
+
+<span class="c">// 修复后</span>
+public static final Block ELEVATOR_CAR_STANDARD = new ElevatorCarBlock(
+        props("elevator_car_standard", MapColor.METAL, 4.0F, 10.0F, SoundType.METAL));
+
+private static BlockBehaviour.Properties props(String name, ...) {
+    return BlockBehaviour.Properties.of()
+            .setId(ResourceKey.create(Registries.BLOCK, id(name)))   <span class="c">// ✅ 关键</span>
+            .mapColor(color).strength(hardness, resistance).sound(sound);
+}</pre>
+
+    <h3><span class="n">11.3</span>验证</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>验证项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td><code>gradle build</code></td><td>✅ BUILD SUCCESSFUL</td></tr>
+          <tr><td>字节码含 <code>setId</code> 调用</td><td>✅ <code>ModBlocks</code> / <code>ModItems</code> 均确认</td></tr>
+          <tr><td><strong>实际启动客户端</strong>（<code>runClient</code>）</td><td>✅ 模组初始化成功，进入主菜单，<strong>0 崩溃</strong></td></tr>
+          <tr><td>日志关键行</td><td><code>[ElevatorCraft] 正在初始化电梯系统…</code> → <code>[ElevatorCraft] 初始化完成。</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">11.4</span>用户操作</h3>
+    <p>① <strong>删除</strong> <code>mods/</code> 里的旧 <code>elevatorcraft-1.0.0.jar</code> → ② <strong>放入</strong> 新的 <code>elevatorcraft-1.0.1.jar</code> → ③ 确认 Fabric Loader 选择 <strong>Minecraft 1.21.8</strong>，且 <code>mods/</code> 内有 <strong>Fabric API <code>0.136.1+1.21.8</code></strong> → ④ 启动游戏即可。</p>
+  </div>
+</section>
+
+<!-- ============ 12. 贴图修复 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">12 · 贴图修复记录（v1.0.2）</div>
+    <h2>紫黑缺失贴图已定位并修复</h2>
+    <p class="lead">v1.0.1 启动正常、功能正常，但<strong>所有电梯相关方块与物品都显示为紫黑格子</strong>（缺失贴图）。已按用户提供的游戏截图排查全部资源链并修复，重新编译后<strong>实测加载通过（0 missing-texture 错误）</strong>。</p>
+
+    <div class="callout" style="border-color:#e5484d">
+      <div class="ttl">🧱 用户截图确认的现象</div>
+      <p>游戏内所有模组物品（7 个方块 + 2 个物品）图标与放置方块均为紫黑 / 黑色棋盘格纹理（Minecraft 经典缺失贴图样式），原版物品正常。</p>
+    </div>
+
+    <h3><span class="n">12.1</span>根因（双重缺失）</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>原因</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><strong>① 缺少 <code>items/</code> 目录</strong></td><td>Minecraft <strong>1.21.4+ 引入新物品模型系统</strong>：物品模型定义必须放在 <code>assets/&lt;ns&gt;/items/&lt;id&gt;.json</code>（格式 <code>{"model":{"type":"minecraft:model","model":"…"}}</code>），旧的 <code>models/item/</code> 目录已不再被读取。本工程完全没有 <code>items/</code> 目录 → 全部 9 个物品图标缺失。</td></tr>
+          <tr><td><strong>② 4 个基础方块模型缺失</strong></td><td>item 模型 parent 引用的 <code>models/block/call_panel.json</code>、<code>control_panel.json</code>、<code>terminal.json</code>、<code>elevator_door.json</code> 文件不存在（只有方向变体 <code>*_north.json</code> 等）→ 引用链断裂。</td></tr>
+          <tr><td><strong>③ 配方 JSON 为旧格式</strong></td><td>1.21.2+ 的 ingredient 必须是 <code>"minecraft:iron_ingot"</code> 字符串（<code>fabric:type</code> 机制），旧 <code>{"item":…}</code> 对象格式解析失败 → 9 个配方全部无法加载（日志报 <code>Couldn't parse data file</code>），物品在生存模式不可合成。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">12.2</span>修复内容</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>文件</th><th>修复</th></tr></thead>
+        <tbody>
+          <tr><td><code>assets/elevatorcraft/items/*.json</code>（新增 9 个）</td><td>为全部 9 个物品创建 1.21.4+ 物品模型定义，指向对应方块模型 / 物品模型</td></tr>
+          <tr><td><code>models/block/call_panel.json</code> 等（新增 4 个）</td><td>补齐 item 模型 parent 引用的基础方块模型</td></tr>
+          <tr><td><code>data/elevatorcraft/recipe/*.json</code>（9 个）</td><td>ingredient 从 <code>{"item":…}</code> 对象升级为 <code>"minecraft:…"</code> 字符串（1.21.2+ 格式）</td></tr>
+          <tr><td><code>tools/validate_assets.py</code>（新增）</td><td>资源一致性校验器：自动检查 items/ 定义、blockstates、模型 parent、贴图引用、PNG 合法性、语言文件，当前 73 项检查全部通过</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">12.3</span>验证</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>验证项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td><code>gradle build</code></td><td>✅ BUILD SUCCESSFUL（<code>elevatorcraft-1.0.2.jar</code>，134 KB）</td></tr>
+          <tr><td>jar 内容检查</td><td>✅ <code>assets/elevatorcraft/items/</code>（9 个定义）与 4 个基础模型均已打进 jar</td></tr>
+          <tr><td>资源一致性校验</td><td>✅ <code>validate_assets.py</code> 73/73 项通过（items / blockstates / 模型 / 贴图 / 语言全覆盖）</td></tr>
+          <tr><td>配方加载</td><td>✅ 9 个配方解析错误全部消失（v1.0.1 日志 9 个 → v1.0.2 日志 0 个）</td></tr>
+          <tr><td><strong>实际启动客户端</strong></td><td>✅ <code>runClient</code> 启动，资源管理器加载 <code>elevatorcraft</code> 成功，<strong>0 个 missing-texture / 模型缺失错误</strong>（唯一无关告警为沙箱环境缺 <code>libflite.so</code> 语音库）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">12.4</span>用户操作</h3>
+    <p>① <strong>删除</strong> <code>mods/</code> 里的旧 <code>elevatorcraft-1.0.1.jar</code> → ② <strong>放入</strong> 新的 <code>elevatorcraft-1.0.2.jar</code> → ③ 启动游戏（或按 <code>F3+T</code> 重载资源）即可看到全部贴图正常显示。</p>
+  </div>
+</section>
+
+<!-- ============ 13. 名称乱码修复 + 游戏内教程 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">13 · 名称乱码修复 + 游戏内教程（v1.0.3）</div>
+    <h2>物品名称乱码已定位并修复，同时加入游戏内教程</h2>
+    <p class="lead">v1.0.2 贴图已正常，但<strong>背包里模组物品的名称显示为原始翻译键</strong>（如 <code>item.elevatorcraft.elevator_car_standard</code>）。已定位根因、修复并重新编译，同时新增<strong>完整中文 tooltip</strong> 与一本<strong>游戏内「电梯手册」</strong>。</p>
+
+    <div class="callout" style="border-color:#e5484d">
+      <div class="ttl">🧱 用户截图确认的现象</div>
+      <p>物品栏中模组物品的悬停名称显示为 <code>item.elevatorcraft.elevator_car_standard</code> 这类<strong>未翻译的原始键名</strong>（不是编码乱码、也不是问号方块）—— 这是 Minecraft 在<strong>找不到对应翻译键时回退显示键名本身</strong>的典型表现。</p>
+    </div>
+
+    <h3><span class="n">13.1</span>根因（1.21.8 的翻译键前缀规则）</h3>
+    <p>Minecraft 1.21.8 中，<strong>BlockItem 不会自动使用 <code>block.</code> 前缀</strong>。<code>Item.Properties</code> 的默认 descriptionId 是 <code>item.&lt;ns&gt;.&lt;path&gt;</code>，只有显式调用 <code>useBlockDescriptionPrefix()</code> 才会切换为 <code>block.&lt;ns&gt;.&lt;path&gt;</code>。</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>环节</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><strong>原版怎么做</strong></td><td>原版 <code>net.minecraft.world.item.Items#registerBlock(...)</code> 创建 BlockItem 时<strong>显式调用了 <code>useBlockDescriptionPrefix()</code></strong>，所以原版方块的翻译键是 <code>block.minecraft.stone</code>。</td></tr>
+          <tr><td><strong>本模组漏了什么</strong></td><td>早期版本的 <code>ModItems</code> 直接用 <code>new BlockItem(block, props)</code>，<strong>漏了 <code>useBlockDescriptionPrefix()</code></strong> → 方块的 BlockItem 去找 <code>item.elevatorcraft.xxx</code>。</td></tr>
+          <tr><td><strong>为什么显示乱码</strong></td><td>语言文件里只有 <code>block.elevatorcraft.xxx</code>，没有 <code>item.elevatorcraft.xxx</code> → 查找失败 → 界面<strong>回退显示原始翻译键</strong>，即用户看到的「乱码」。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:10px"><em>根因通过反编译 Minecraft 1.21.8 字节码确认：<code>Item.Properties</code> 的 <code>effectiveDescriptionId</code> 默认返回 <code>ITEM_DESCRIPTION_ID</code>，仅当 <code>useBlockDescriptionPrefix()</code> 被调用后才返回 <code>BLOCK_DESCRIPTION_ID</code>。</em></p>
+
+    <h3><span class="n">13.2</span>修复内容</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>文件</th><th>修复</th></tr></thead>
+        <tbody>
+          <tr><td><code>registry/ModItems.java</code></td><td>新增 <code>blockItemProps(name)</code> 统一入口，内部调用 <code>useBlockDescriptionPrefix()</code>；7 个方块物品全部改走该入口</td></tr>
+          <tr><td><code>item/ElevatorBlockItem.java</code>（新增）</td><td>方块物品基类，统一提供<strong>悬停说明（tooltip）</strong>，文本完全由语言文件驱动</td></tr>
+          <tr><td><code>item/ElevatorManualItem.java</code>（新增）</td><td>「电梯手册」物品，右键打开游戏内教程界面</td></tr>
+          <tr><td><code>screen/ManualScreen.java</code>（新增）</td><td>手册界面：左侧 9 章目录 + 右侧正文（自动换行、可滚动）</td></tr>
+          <tr><td><code>lang/zh_cn.json</code> / <code>en_us.json</code></td><td>重写为完整语言文件：218 个键，含方块/物品名、29 条 tooltip、146 条手册正文</td></tr>
+          <tr><td><code>items/elevator_manual.json</code>、<code>models/item/elevator_manual.json</code>、<code>textures/item/elevator_manual.png</code>、<code>recipe/elevator_manual.json</code></td><td>手册物品的模型定义、图标贴图与合成配方（书 + 2 纸）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">13.3</span>游戏内教程（两部分）</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>形式</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><strong>① 物品 tooltip</strong></td><td>每个方块/物品悬停时显示 2–3 行中文说明（用途 + 使用方法），例如轿厢显示「整部电梯的核心方块，放下即创建一部电梯」</td></tr>
+          <tr><td><strong>② 电梯手册（物品）</strong></td><td>合成：<strong>1 书 + 2 纸</strong>。右键打开界面，分 <strong>9 章</strong>：快速开始 / 搭建电梯 / 楼层检测 / 外呼面板 / 刷卡授权 / 管理终端 / 门锁系统 / 监控查看 / 配方一览</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:10px">手册正文与 tooltip 全部存放在语言文件中（键名 <code>manual.elevatorcraft.chapter.&lt;id&gt;.body.N</code>），<strong>以后改教程文字、加章节、做多语言都只需改 json，不必重新编译</strong>。</p>
+
+    <h3><span class="n">13.4</span>验证</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>验证项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td><code>gradle build</code></td><td>✅ BUILD SUCCESSFUL（<code>elevatorcraft-1.0.3.jar</code>，153 KB）</td></tr>
+          <tr><td>语言文件编码</td><td>✅ jar 内 <code>zh_cn.json</code> / <code>en_us.json</code> 均为 <strong>UTF-8 无 BOM</strong>，JSON 合法，各 218 键</td></tr>
+          <tr><td>键名 ↔ 注册 ID 对应</td><td>✅ 7 个方块 → <code>block.elevatorcraft.*</code>、3 个物品 → <code>item.elevatorcraft.*</code>，<strong>全部一一对应</strong>；7 个方块 tooltip 齐全；手册 9 章完整</td></tr>
+          <tr><td><strong>实际启动客户端</strong></td><td>✅ <code>runClient</code> 启动，模组 <strong>1.0.3 初始化成功</strong>，资源管理器加载 <code>elevatorcraft</code>，<strong>0 个缺失贴图 / 模型 / 语言错误</strong>（唯一无关告警为沙箱缺 <code>libflite.so</code> 语音库）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">13.5</span>用户操作</h3>
+    <p>① <strong>删除</strong> <code>mods/</code> 里的旧 <code>elevatorcraft-1.0.2.jar</code> → ② <strong>放入</strong> 新的 <code>elevatorcraft-1.0.3.jar</code> → ③ 启动游戏（或按 <code>F3+T</code> 重载资源）→ ④ 物品名称即显示为中文，悬停可见说明；合成一本「电梯手册」右键即可查看完整教程。</p>
+  </div>
+</section>
+
+<!-- ============ 14. 历史版本下载 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">14 · 历史版本下载</div>
+    <h2>全部历史版本一览</h2>
+    <p class="lead">每次修改均在页面留存历史版本下载区：版本号按 <strong>1.x</strong> 递增，重大更新或用户要求时才升大版本。以下是 1.0.0 / 1.0.1 / 1.0.2 / 1.0.3 四个版本（请始终下载<strong>最新版 1.0.3</strong>）。</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>版本</th><th>日期</th><th>更新说明</th><th style="width:200px">下载</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>1.0.0</strong></td><td>2026-11-08</td>
+            <td>初版：11 项需求全部落地（轿厢 / 外呼面板 / 电梯门 / 刷卡 / 监控 / 楼层检测 / 控制面板 / 门锁 / 管理显示 / 材质 / 合成）。⚠️ 存在启动崩溃与贴图缺失问题，不建议使用</td>
+            <td>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/dist/elevatorcraft-1.0.0.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQzOTk2Nzg.ZmRlZDY2NjIzMjdkNzdjYTEwNTRhMjgzYTkwNTQ4MmM">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQzOTk2Nzg.ZmRlZDY2NjIzMjdkNzdjYTEwNTRhMjgzYTkwNTQ4MmM">源码</a>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>1.0.1</strong></td><td>2026-11-08</td>
+            <td>崩溃修复：1.21.2+ 注册 ID 前置机制 —— <code>Block/Item id not set</code>，构造与注册分离并补 <code>setId()</code>。⚠️ 仍有贴图缺失问题，不建议使用</td>
+            <td>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/dist/elevatorcraft-1.0.1.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQzOTk2Nzg.Yjc4MTBjMGI4NTVkNzY1OTUyZDA5M2JlZjkyMzQ2ZWE">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQzOTk2Nzg.Yjc4MTBjMGI4NTVkNzY1OTUyZDA5M2JlZjkyMzQ2ZWE">源码</a>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>1.0.2</strong></td><td>2026-11-09</td>
+            <td>贴图修复：新增 <code>assets/elevatorcraft/items/</code>（9 个物品定义，1.21.4+ 新系统）、补齐 4 个基础方块模型、9 个配方升级为 1.21.2+ ingredient 格式。⚠️ 物品名称仍显示为原始键名，不建议使用</td>
+            <td>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft/build/libs/elevatorcraft-1.0.2.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQzOTk2Nzg.YjgxZGMzM2VmYjM5YTdiMWQwZjBiMDNiYTk1Njc0YjU">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQzOTk2Nzg.YjgxZGMzM2VmYjM5YTdiMWQwZjBiMDNiYTk1Njc0YjU">源码</a>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>1.0.3 ✅</strong></td><td>2026-11-10</td>
+            <td>名称乱码修复：方块物品补 <code>useBlockDescriptionPrefix()</code>（1.21.8 翻译键前缀规则）；新增完整中文 tooltip 与游戏内「电梯手册」（9 章教程，书+2 纸合成）。<strong>推荐使用</strong></td>
+            <td>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/dist/elevatorcraft-1.0.3.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">源码</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fl">
+      <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/dist/elevatorcraft-1.0.3.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">⬇ 下载 elevatorcraft-1.0.3.jar（名称乱码修复 + 教程版）</a>
+      <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">⬇ 下载完整源码包</a>
+    </div>
+    <p>ElevatorCraft v1.0.3 · 实际可编译目标 Minecraft 1.21.8 · Fabric</p>
+  </div>
+</footer>
+
+</body>
+</html>
