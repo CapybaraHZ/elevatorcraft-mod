@@ -218,15 +218,15 @@ sweep(document)})();</script>
 <header class="hero">
   <div class="hero-grid"></div>
   <div class="wrap">
-    <span class="badge"><span class="dot"></span>FABRIC MOD · v1.0.3 · 名称乱码已修复 + 游戏内教程</span>
-    <h1>ElevatorCraft<br><span class="grad">Minecraft 电梯系统模组</span></h1>
+    <span class="badge"><span class="dot"></span>FABRIC MOD · v1.0.4 · 电梯实体化改造 + 管理后台</span>
+    <h1 id="ec-title" title="ElevatorCraft">ElevatorCraft<br><span class="grad">Minecraft 电梯系统模组</span></h1>
     <p class="sub">一套完整的电梯系统：轿厢、外呼面板、电梯门、刷卡鉴权、监控、楼层检测、门锁与管理终端。含完整实现方案、代码结构、关键代码、合成配方、材质方案与构建说明。</p>
     <div class="hero-meta">
       <span class="chip">目标版本 <b>Minecraft 1.21.8</b></span>
       <span class="chip">Fabric Loader <b>0.20.1</b></span>
       <span class="chip">Fabric API <b>0.136.1+1.21.8</b></span>
       <span class="chip">Java <b>21</b></span>
-      <span class="chip">产物 <b>elevatorcraft-1.0.3.jar</b></span>
+      <span class="chip">产物 <b>elevatorcraft-1.0.4.jar</b></span>
     </div>
   </div>
 </header>
@@ -1055,46 +1055,149 @@ private static BlockBehaviour.Properties props(String name, ...) {
   </div>
 </section>
 
-<!-- ============ 14. 历史版本下载 ============ -->
-<section>
+<!-- ============ 14. 电梯实体化改造（v1.0.4） ============ -->
+<section id="entity-upgrade">
   <div class="wrap">
-    <div class="eyebrow">14 · 历史版本下载</div>
-    <h2>全部历史版本一览</h2>
-    <p class="lead">每次修改均在页面留存历史版本下载区：版本号按 <strong>1.x</strong> 递增，重大更新或用户要求时才升大版本。以下是 1.0.0 / 1.0.1 / 1.0.2 / 1.0.3 四个版本（请始终下载<strong>最新版 1.0.3</strong>）。</p>
+    <div class="eyebrow">14 · 电梯实体化改造（v1.0.4）</div>
+    <h2>轿厢从「方块 + 传送」升级为可运动的实体</h2>
+    <p class="lead">v1.0.4 把电梯轿厢改造成一个真正会上下运动的<strong>实体（Entity）</strong>，外观仍用原有电梯材质渲染成轿厢，而不是普通生物。玩家不再需要手动逐块搭建轿厢。</p>
+
+    <div class="cards">
+      <div class="card">
+        <span class="ico">🛗</span>
+        <h4>轿厢实体化</h4>
+        <p>新增 <code>ElevatorCarEntity</code>（继承 <code>Entity</code>，与船 / 矿车同类）。按楼层上下移动、到层停靠、自动开门，并承载轿厢内的玩家一起移动。</p>
+      </div>
+      <div class="card">
+        <span class="ico">🎨</span>
+        <h4>外观仍是轿厢</h4>
+        <p>自定义渲染器 <code>ElevatorCarRenderer</code> 用现有电梯材质绘制立方体轿厢：普通 / 观光（半透明）/ 货梯三套贴图自动切换。</p>
+      </div>
+      <div class="card">
+        <span class="ico">🧩</span>
+        <h4>两种搭建方式</h4>
+        <p>① 用「电梯召唤器」右键地面一键召唤；② 直接放下电梯轿厢方块，模组自动补全门 / 控制面板 / 管理终端。</p>
+      </div>
+      <div class="card">
+        <span class="ico">🔗</span>
+        <h4>既有系统全部保留</h4>
+        <p>刷卡鉴权、门锁、监控、楼层检测、管理终端、合成配方与贴图<strong>全部照常工作</strong>，业务数据仍集中在 <code>ElevatorManager</code>。</p>
+      </div>
+    </div>
+
+    <h3><span class="n">14.1</span>使用方式：如何召唤 / 自动搭建</h3>
+    <div class="flow">
+      <div class="layer">
+        <div class="lt">方式 A · 一键召唤（推荐）</div>
+        <div class="ld">手持「电梯召唤器」→ 右键地面 → 自动生成轿厢实体 + 门 + 控制面板 + 管理终端</div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer">
+        <div class="lt">方式 B · 放下轿厢方块自动搭建</div>
+        <div class="ld">直接放置「电梯轿厢」方块 → 模组自动补全整台电梯（实体 + 门 + 面板 + 终端）</div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer">
+        <div class="lt">完成 · 右键面板即可使用</div>
+        <div class="ld">每层放 1 扇门 + 1 个控制面板即被识别为一层；刷卡 / 门锁 / 监控 / 终端照常</div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <div class="ttl">召唤器有三种规格</div>
+      <p>普通（2×2）、观光（2×2 玻璃）、货梯（3×3）各一个召唤器，合成配方见「配方一览」章节。生存模式使用会消耗 1 个。</p>
+    </div>
+
+    <h3><span class="n">14.2</span>运动逻辑</h3>
     <div class="tbl-wrap">
       <table>
+        <thead><tr><th>行为</th><th>实现</th></tr></thead>
+        <tbody>
+          <tr><td><strong>按楼层上下移动</strong></td><td>服务端每 tick 把轿厢 Y 向目标楼层推进 <code>0.2</code> 格（约 4 格/秒）</td></tr>
+          <tr><td><strong>到层停靠</strong></td><td>距离 ≤ 一步时精确对齐 Y，更新当前楼层并清空目标</td></tr>
+          <tr><td><strong>自动开门</strong></td><td>到层后调用既有 <code>openDoor()</code>，与门系统联动</td></tr>
+          <tr><td><strong>承载玩家</strong></td><td>每 tick 扫描轿厢 AABB 内的实体一起平移（玩家可在轿厢内自由走动）</td></tr>
+          <tr><td><strong>与面板 / 外呼联动</strong></td><td>呼梯仍走 <code>ElevatorManager.requestFloor()</code>，实体只负责执行移动</td></tr>
+          <tr><td><strong>持久化</strong></td><td>实体保存 <code>GroupId</code> 与规格；重启后自动恢复，实体丢失时每 1 秒兜底补建</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="n">14.3</span>架构：实体与方块的分工</h3>
+    <div class="tree"><span class="d">com/elevatorcraft/</span>
+├── <span class="d">entity/</span>
+│   └── <span class="f2">ElevatorCarEntity.java</span>   <span class="cm"># 轿厢实体：移动 / 停靠 / 载人 / 持久化</span>
+├── <span class="d">client/</span>
+│   ├── <span class="f2">ElevatorCarRenderer.java</span>    <span class="cm"># 用电梯材质渲染立方体轿厢</span>
+│   └── <span class="f2">ElevatorCarRenderState.java</span> <span class="cm"># 渲染状态（规格 / 运行中）</span>
+├── <span class="d">elevator/</span>
+│   └── <span class="f2">ElevatorBuilder.java</span>       <span class="cm"># 一键召唤 / 自动搭建 / 实体兜底</span>
+├── <span class="d">item/</span>
+│   └── <span class="f2">ElevatorSummonItem.java</span>     <span class="cm"># 召唤器物品（三种规格）</span>
+└── <span class="d">registry/</span>
+    └── <span class="f2">ModEntities.java</span>            <span class="cm"># 实体类型注册</span></div>
+
+    <div class="callout ok">
+      <div class="ttl">为什么门 / 面板 / 终端仍是方块？</div>
+      <p>它们需要「贴墙」「薄碰撞箱」「右键交互」，用方块实现最自然，也与既有系统（刷卡、门锁、监控、终端 GUI）完全兼容。只有「会动的轿厢」变成了实体。</p>
+    </div>
+
+    <h3><span class="n">14.4</span>本页管理后台入口</h3>
+    <div class="callout">
+      <div class="ttl">🔐 隐藏入口</div>
+      <p>连续点击页面顶部的 <strong>ElevatorCraft</strong> 标题 <strong>10 次</strong>，会弹出管理员密码框。输入密码 <code>capybara</code> 通过校验后，即可进入后台：新增版本条目、编辑版本说明与更新日志、设置 jar / 源码包下载链接。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 15. 历史版本下载 ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">15 · 历史版本下载</div>
+    <h2>全部历史版本一览</h2>
+    <p class="lead">每次修改均在页面留存历史版本下载区：版本号按 <strong>1.x</strong> 递增，重大更新或用户要求时才升大版本。以下是 1.0.0 / 1.0.1 / 1.0.2 / 1.0.3 / 1.0.4 五个版本（请始终下载<strong>最新版 1.0.4</strong>）。</p>
+    <div class="tbl-wrap">
+      <table id="ec-history-table">
         <thead><tr><th>版本</th><th>日期</th><th>更新说明</th><th style="width:200px">下载</th></tr></thead>
         <tbody>
           <tr>
             <td><strong>1.0.0</strong></td><td>2026-11-08</td>
             <td>初版：11 项需求全部落地（轿厢 / 外呼面板 / 电梯门 / 刷卡 / 监控 / 楼层检测 / 控制面板 / 门锁 / 管理显示 / 材质 / 合成）。⚠️ 存在启动崩溃与贴图缺失问题，不建议使用</td>
             <td>
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/dist/elevatorcraft-1.0.0.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQzOTk2Nzg.ZmRlZDY2NjIzMjdkNzdjYTEwNTRhMjgzYTkwNTQ4MmM">jar</a> ·
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQzOTk2Nzg.ZmRlZDY2NjIzMjdkNzdjYTEwNTRhMjgzYTkwNTQ4MmM">源码</a>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/dist/elevatorcraft-1.0.0.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQ0ODYwMDk.ODY5NzVmNWJmYmRmMTlhZTFlM2RjMTUyYzlmZGE0OTc">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQ0ODYwMDk.ODY5NzVmNWJmYmRmMTlhZTFlM2RjMTUyYzlmZGE0OTc">源码</a>
             </td>
           </tr>
           <tr>
             <td><strong>1.0.1</strong></td><td>2026-11-08</td>
             <td>崩溃修复：1.21.2+ 注册 ID 前置机制 —— <code>Block/Item id not set</code>，构造与注册分离并补 <code>setId()</code>。⚠️ 仍有贴图缺失问题，不建议使用</td>
             <td>
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/dist/elevatorcraft-1.0.1.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQzOTk2Nzg.Yjc4MTBjMGI4NTVkNzY1OTUyZDA5M2JlZjkyMzQ2ZWE">jar</a> ·
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQzOTk2Nzg.Yjc4MTBjMGI4NTVkNzY1OTUyZDA5M2JlZjkyMzQ2ZWE">源码</a>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/dist/elevatorcraft-1.0.1.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQ0ODYwMDk.ZjMxZjlkOWUzZDdkNTEwYTE5Y2M1YmI0ODNjMTI0ZmE">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQ0ODYwMDk.ZjMxZjlkOWUzZDdkNTEwYTE5Y2M1YmI0ODNjMTI0ZmE">源码</a>
             </td>
           </tr>
           <tr>
             <td><strong>1.0.2</strong></td><td>2026-11-09</td>
             <td>贴图修复：新增 <code>assets/elevatorcraft/items/</code>（9 个物品定义，1.21.4+ 新系统）、补齐 4 个基础方块模型、9 个配方升级为 1.21.2+ ingredient 格式。⚠️ 物品名称仍显示为原始键名，不建议使用</td>
             <td>
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft/build/libs/elevatorcraft-1.0.2.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQzOTk2Nzg.YjgxZGMzM2VmYjM5YTdiMWQwZjBiMDNiYTk1Njc0YjU">jar</a> ·
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQzOTk2Nzg.YjgxZGMzM2VmYjM5YTdiMWQwZjBiMDNiYTk1Njc0YjU">源码</a>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft/build/libs/elevatorcraft-1.0.2.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQ0ODYwMDk.OTQ3NzFjZThhOGMzNDk0NjEwNWVhMzRlNTMyMjExNGQ">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQ0ODYwMDk.OTQ3NzFjZThhOGMzNDk0NjEwNWVhMzRlNTMyMjExNGQ">源码</a>
             </td>
           </tr>
           <tr>
             <td><strong>1.0.3 ✅</strong></td><td>2026-11-10</td>
             <td>名称乱码修复：方块物品补 <code>useBlockDescriptionPrefix()</code>（1.21.8 翻译键前缀规则）；新增完整中文 tooltip 与游戏内「电梯手册」（9 章教程，书+2 纸合成）。<strong>推荐使用</strong></td>
             <td>
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/dist/elevatorcraft-1.0.3.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">jar</a> ·
-              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">源码</a>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/dist/elevatorcraft-1.0.3.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQ0ODYwMDk.MDBkYmJkZmI1NTRkYWU2MTczNmFlZDU5NjI0MGUwYjc">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQ0ODYwMDk.MDBkYmJkZmI1NTRkYWU2MTczNmFlZDU5NjI0MGUwYjc">源码</a>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>1.0.4 ✅</strong></td><td>2026-11-11</td>
+            <td>电梯实体化改造：轿厢改为可上下运动的实体（<code>ElevatorCarEntity</code> + 自定义渲染器），新增「电梯召唤器」一键召唤与「放下轿厢方块自动搭建」；刷卡 / 门锁 / 监控 / 楼层检测 / 终端 / 配方 / 贴图全部保留。本页新增隐藏管理后台。<strong>推荐使用</strong></td>
+            <td>
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v5/dist/elevatorcraft-1.0.4.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y1OjE3OTQ0ODYwMDk.NTA5M2Y3ZTYyODhhYzJiNDYxOWRjYWJkNTUxMDk5NDE">jar</a> ·
+              <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v5/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y1OjE3OTQ0ODYwMDk.NTA5M2Y3ZTYyODhhYzJiNDYxOWRjYWJkNTUxMDk5NDE">源码</a>
             </td>
           </tr>
         </tbody>
@@ -1106,12 +1209,262 @@ private static BlockBehaviour.Properties props(String name, ...) {
 <footer>
   <div class="wrap">
     <div class="fl">
-      <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/dist/elevatorcraft-1.0.3.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">⬇ 下载 elevatorcraft-1.0.3.jar（名称乱码修复 + 教程版）</a>
-      <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQzOTk2Nzg.ODkyMmQyZjg4MTFhZmJiYjQ0NWI1MjU5NmQzM2UxZWE">⬇ 下载完整源码包</a>
+      <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v5/dist/elevatorcraft-1.0.4.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y1OjE3OTQ0ODYwMDk.NTA5M2Y3ZTYyODhhYzJiNDYxOWRjYWJkNTUxMDk5NDE">⬇ 下载 elevatorcraft-1.0.4.jar（电梯实体化改造版）</a>
+      <a href="https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v5/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y1OjE3OTQ0ODYwMDk.NTA5M2Y3ZTYyODhhYzJiNDYxOWRjYWJkNTUxMDk5NDE">⬇ 下载完整源码包</a>
     </div>
-    <p>ElevatorCraft v1.0.3 · 实际可编译目标 Minecraft 1.21.8 · Fabric</p>
+    <p>ElevatorCraft v1.0.4 · 实际可编译目标 Minecraft 1.21.8 · Fabric</p>
   </div>
 </footer>
+
+<!-- ============ 隐藏管理后台 ============ -->
+<div id="ec-admin-overlay" class="ec-overlay" aria-hidden="true">
+  <div class="ec-modal" role="dialog" aria-modal="true" aria-labelledby="ec-admin-title">
+    <div class="ec-modal-head">
+      <h3 id="ec-admin-title">🔐 管理员后台</h3>
+      <button type="button" class="ec-x" id="ec-admin-close" aria-label="关闭">✕</button>
+    </div>
+    <div class="ec-modal-body">
+      <p class="ec-hint">管理历史版本条目：新增版本、编辑说明与更新日志、设置 jar / 源码包下载链接。改动保存在本机浏览器（localStorage），刷新后仍在。</p>
+      <div id="ec-admin-list"></div>
+      <div class="ec-add">
+        <div class="ec-add-t">➕ 新增版本条目</div>
+        <div class="ec-grid">
+          <label>版本号<input id="ec-new-ver" placeholder="1.0.5"></label>
+          <label>日期<input id="ec-new-date" placeholder="2026-11-12"></label>
+        </div>
+        <label>更新说明<textarea id="ec-new-note" rows="2" placeholder="本次改动说明 / 更新日志"></textarea></label>
+        <div class="ec-grid">
+          <label>jar 链接<input id="ec-new-jar" placeholder="https://…/elevatorcraft-1.0.5.jar"></label>
+          <label>源码包链接<input id="ec-new-src" placeholder="https://…/elevatorcraft-mod-source.zip"></label>
+        </div>
+        <button type="button" class="ec-btn primary" id="ec-add-btn">新增版本</button>
+      </div>
+      <div class="ec-foot">
+        <button type="button" class="ec-btn" id="ec-reset-btn">恢复默认列表</button>
+        <span class="ec-saved" id="ec-saved"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ec-pw-overlay" class="ec-overlay" aria-hidden="true">
+  <div class="ec-modal ec-modal-sm" role="dialog" aria-modal="true" aria-labelledby="ec-pw-title">
+    <div class="ec-modal-head">
+      <h3 id="ec-pw-title">管理员验证</h3>
+      <button type="button" class="ec-x" id="ec-pw-close" aria-label="关闭">✕</button>
+    </div>
+    <div class="ec-modal-body">
+      <p class="ec-hint">请输入管理员密码以进入后台。</p>
+      <input type="password" id="ec-pw-input" class="ec-pw" placeholder="管理员密码" autocomplete="off">
+      <p class="ec-err" id="ec-pw-err"></p>
+      <button type="button" class="ec-btn primary" id="ec-pw-ok">进入后台</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ec-overlay{position:fixed;inset:0;background:rgba(6,9,13,.78);backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;z-index:9999;padding:20px}
+  .ec-overlay.on{display:flex}
+  .ec-modal{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line2);
+    border-radius:16px;width:100%;max-width:720px;max-height:88vh;overflow:auto;
+    box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .ec-modal-sm{max-width:400px}
+  .ec-modal-head{display:flex;align-items:center;justify-content:space-between;
+    padding:18px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;
+    background:var(--panel);z-index:2}
+  .ec-modal-head h3{font-size:16px;font-weight:700;margin:0}
+  .ec-x{background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:6px}
+  .ec-x:hover{background:var(--panel2);color:var(--txt)}
+  .ec-modal-body{padding:20px 22px 24px}
+  .ec-hint{font-size:13px;color:var(--dim2);margin-bottom:16px}
+  .ec-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .ec-modal label{display:block;font-size:12.5px;color:var(--dim);margin-bottom:12px}
+  .ec-modal input,.ec-modal textarea{width:100%;margin-top:5px;background:#0a0d12;border:1px solid var(--line);
+    border-radius:8px;color:var(--txt);padding:9px 11px;font-size:13px;font-family:var(--mono)}
+  .ec-modal input:focus,.ec-modal textarea:focus{outline:none;border-color:var(--accent)}
+  .ec-pw{font-family:var(--mono)}
+  .ec-err{color:var(--red);font-size:12.5px;min-height:18px;margin:8px 0}
+  .ec-btn{background:var(--panel2);border:1px solid var(--line2);color:var(--txt);
+    border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:600}
+  .ec-btn:hover{border-color:var(--accent)}
+  .ec-btn.primary{background:linear-gradient(100deg,var(--accent),var(--accent2));color:#06231f;border:none}
+  .ec-btn.danger{color:var(--red);border-color:rgba(255,107,107,.4)}
+  .ec-item{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--panel)}
+  .ec-item .ec-item-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .ec-item .ec-item-h b{font-family:var(--mono);color:var(--accent);font-size:14px}
+  .ec-add{border-top:1px solid var(--line);margin-top:8px;padding-top:18px}
+  .ec-add-t{font-weight:700;font-size:14px;margin-bottom:14px}
+  .ec-foot{display:flex;align-items:center;gap:14px;margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+  .ec-saved{font-size:12.5px;color:var(--green)}
+  @media(max-width:560px){.ec-grid{grid-template-columns:1fr}}
+</style>
+
+<script>
+(function(){
+  "use strict";
+  var ADMIN_PASSWORD = "capybara";
+  var STORE_KEY = "elevatorcraft_history_v1";
+  var CLICKS_NEEDED = 10;
+  var CLICK_WINDOW = 3000; // 连续点击的时间窗口（毫秒）
+
+  var title = document.getElementById("ec-title");
+  var pwOverlay = document.getElementById("ec-pw-overlay");
+  var adminOverlay = document.getElementById("ec-admin-overlay");
+  var pwInput = document.getElementById("ec-pw-input");
+  var pwErr = document.getElementById("ec-pw-err");
+  var listEl = document.getElementById("ec-admin-list");
+  var savedEl = document.getElementById("ec-saved");
+
+  var clicks = 0, firstClickAt = 0, clickTimer = null;
+
+  // ---------- 默认历史版本（与页面表格一致） ----------
+  var DEFAULTS = [
+    {ver:"1.0.0", date:"2026-11-08", note:"初版：11 项需求全部落地。⚠️ 存在启动崩溃与贴图缺失问题，不建议使用",
+     jar:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/dist/elevatorcraft-1.0.0.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQ0ODYwMDk.ODY5NzVmNWJmYmRmMTlhZTFlM2RjMTUyYzlmZGE0OTc",
+     src:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kOjE3OTQ0ODYwMDk.ODY5NzVmNWJmYmRmMTlhZTFlM2RjMTUyYzlmZGE0OTc"},
+    {ver:"1.0.1", date:"2026-11-08", note:"崩溃修复：1.21.2+ 注册 ID 前置机制（Block/Item id not set）。⚠️ 仍有贴图缺失问题，不建议使用",
+     jar:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/dist/elevatorcraft-1.0.1.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQ0ODYwMDk.ZjMxZjlkOWUzZDdkNTEwYTE5Y2M1YmI0ODNjMTI0ZmE",
+     src:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v2/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YyOjE3OTQ0ODYwMDk.ZjMxZjlkOWUzZDdkNTEwYTE5Y2M1YmI0ODNjMTI0ZmE"},
+    {ver:"1.0.2", date:"2026-11-09", note:"贴图修复：新增 items/ 物品定义、补齐基础方块模型、配方升级为 1.21.2+ 格式。⚠️ 物品名称仍显示为原始键名，不建议使用",
+     jar:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft/build/libs/elevatorcraft-1.0.2.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQ0ODYwMDk.OTQ3NzFjZThhOGMzNDk0NjEwNWVhMzRlNTMyMjExNGQ",
+     src:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v3/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3YzOjE3OTQ0ODYwMDk.OTQ3NzFjZThhOGMzNDk0NjEwNWVhMzRlNTMyMjExNGQ"},
+    {ver:"1.0.3", date:"2026-11-10", note:"名称乱码修复：方块物品补 useBlockDescriptionPrefix()；新增完整中文 tooltip 与游戏内「电梯手册」（9 章教程）",
+     jar:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/dist/elevatorcraft-1.0.3.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQ0ODYwMDk.MDBkYmJkZmI1NTRkYWU2MTczNmFlZDU5NjI0MGUwYjc",
+     src:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v4/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y0OjE3OTQ0ODYwMDk.MDBkYmJkZmI1NTRkYWU2MTczNmFlZDU5NjI0MGUwYjc"},
+    {ver:"1.0.4", date:"2026-11-11", note:"电梯实体化改造：轿厢改为可上下运动的实体（ElevatorCarEntity + 自定义渲染器），新增「电梯召唤器」一键召唤与「放下轿厢方块自动搭建」；刷卡 / 门锁 / 监控 / 楼层检测 / 终端 / 配方 / 贴图全部保留。本页新增隐藏管理后台。推荐使用",
+     jar:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v5/dist/elevatorcraft-1.0.4.jar?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y1OjE3OTQ0ODYwMDk.NTA5M2Y3ZTYyODhhYzJiNDYxOWRjYWJkNTUxMDk5NDE",
+     src:"https://static.teamily.ai/sites/85bf6115-bdb4-4011-a104-80c9d7ab8b9d/documents/elevatorcraft-mod_v5/elevatorcraft-mod-source.zip?tk=c2l0ZTo4NWJmNjExNS1iZGI0LTQwMTEtYTEwNC04MGM5ZDdhYjhiOWQvZG9jdW1lbnRzL2VsZXZhdG9yY3JhZnQtbW9kX3Y1OjE3OTQ0ODYwMDk.NTA5M2Y3ZTYyODhhYzJiNDYxOWRjYWJkNTUxMDk5NDE"}
+  ];
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if(raw){ var d = JSON.parse(raw); if(Array.isArray(d) && d.length) return d; }
+    }catch(e){}
+    return DEFAULTS.slice();
+  }
+  function save(list){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  function esc(s){
+    return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function flash(msg){
+    savedEl.textContent = msg;
+    setTimeout(function(){ savedEl.textContent = ""; }, 2200);
+  }
+
+  // ---------- 渲染后台列表 ----------
+  function render(){
+    var list = load();
+    if(!list.length){ listEl.innerHTML = '<p class="ec-hint">暂无版本条目。</p>'; return; }
+    listEl.innerHTML = list.map(function(v, i){
+      return '<div class="ec-item" data-i="'+i+'">'
+        + '<div class="ec-item-h"><b>'+esc(v.ver)+'</b>'
+        + '<button type="button" class="ec-btn danger" data-del="'+i+'">删除</button></div>'
+        + '<div class="ec-grid">'
+        + '<label>版本号<input data-f="ver" value="'+esc(v.ver)+'"></label>'
+        + '<label>日期<input data-f="date" value="'+esc(v.date)+'"></label>'
+        + '</div>'
+        + '<label>更新说明<textarea data-f="note" rows="2">'+esc(v.note)+'</textarea></label>'
+        + '<div class="ec-grid">'
+        + '<label>jar 链接<input data-f="jar" value="'+esc(v.jar)+'"></label>'
+        + '<label>源码包链接<input data-f="src" value="'+esc(v.src)+'"></label>'
+        + '</div>'
+        + '<button type="button" class="ec-btn primary" data-save="'+i+'">保存此条</button>'
+        + '</div>';
+    }).join("");
+  }
+
+  // ---------- 事件：列表内保存 / 删除 ----------
+  listEl.addEventListener("click", function(e){
+    var t = e.target;
+    if(t.dataset.save !== undefined){
+      var i = +t.dataset.save, list = load(), item = listEl.querySelector('.ec-item[data-i="'+i+'"]');
+      item.querySelectorAll("[data-f]").forEach(function(inp){ list[i][inp.dataset.f] = inp.value; });
+      save(list); flash("已保存 " + list[i].ver); render();
+    } else if(t.dataset.del !== undefined){
+      var j = +t.dataset.del, l2 = load();
+      var removed = l2.splice(j,1)[0];
+      save(l2); flash("已删除 " + (removed ? removed.ver : "")); render();
+    }
+  });
+
+  // ---------- 新增版本 ----------
+  document.getElementById("ec-add-btn").addEventListener("click", function(){
+    var ver = document.getElementById("ec-new-ver").value.trim();
+    if(!ver){ flash("请填写版本号"); return; }
+    var list = load();
+    list.push({
+      ver: ver,
+      date: document.getElementById("ec-new-date").value.trim() || new Date().toISOString().slice(0,10),
+      note: document.getElementById("ec-new-note").value.trim(),
+      jar: document.getElementById("ec-new-jar").value.trim(),
+      src: document.getElementById("ec-new-src").value.trim()
+    });
+    save(list);
+    ["ec-new-ver","ec-new-date","ec-new-note","ec-new-jar","ec-new-src"].forEach(function(id){
+      document.getElementById(id).value = "";
+    });
+    flash("已新增 " + ver); render();
+  });
+
+  // ---------- 恢复默认 ----------
+  document.getElementById("ec-reset-btn").addEventListener("click", function(){
+    save(DEFAULTS.slice()); flash("已恢复默认列表"); render();
+  });
+
+  // ---------- 隐藏触发：连续点击标题 10 次 ----------
+  title.style.cursor = "default";
+  title.addEventListener("click", function(){
+    var now = Date.now();
+    if(now - firstClickAt > CLICK_WINDOW){ clicks = 0; firstClickAt = now; }
+    clicks++;
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(function(){ clicks = 0; }, CLICK_WINDOW);
+    if(clicks >= CLICKS_NEEDED){
+      clicks = 0;
+      pwErr.textContent = "";
+      pwInput.value = "";
+      pwOverlay.classList.add("on");
+      pwOverlay.setAttribute("aria-hidden","false");
+      setTimeout(function(){ pwInput.focus(); }, 50);
+    }
+  });
+
+  // ---------- 密码校验 ----------
+  function tryEnter(){
+    if(pwInput.value === ADMIN_PASSWORD){
+      pwOverlay.classList.remove("on");
+      pwOverlay.setAttribute("aria-hidden","true");
+      render();
+      adminOverlay.classList.add("on");
+      adminOverlay.setAttribute("aria-hidden","false");
+    } else {
+      pwErr.textContent = "密码错误，请重试。";
+      pwInput.value = "";
+      pwInput.focus();
+    }
+  }
+  document.getElementById("ec-pw-ok").addEventListener("click", tryEnter);
+  pwInput.addEventListener("keydown", function(e){ if(e.key === "Enter") tryEnter(); });
+
+  // ---------- 关闭 ----------
+  function closePw(){ pwOverlay.classList.remove("on"); pwOverlay.setAttribute("aria-hidden","true"); }
+  function closeAdmin(){ adminOverlay.classList.remove("on"); adminOverlay.setAttribute("aria-hidden","true"); }
+  document.getElementById("ec-pw-close").addEventListener("click", closePw);
+  document.getElementById("ec-admin-close").addEventListener("click", closeAdmin);
+  [pwOverlay, adminOverlay].forEach(function(ov){
+    ov.addEventListener("click", function(e){ if(e.target === ov){ ov.classList.remove("on"); ov.setAttribute("aria-hidden","true"); } });
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape"){ closePw(); closeAdmin(); }
+  });
+})();
+</script>
 
 </body>
 </html>
